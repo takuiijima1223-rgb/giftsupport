@@ -24,11 +24,11 @@
         
         body {
             font-family: 'Noto Sans JP', sans-serif;
-            background-color: #f1f5f9; /* Slate 100 */
+            background-color: #f1f5f9;
         }
         .font-roboto { font-family: 'Roboto', sans-serif; }
 
-        /* 印刷時のスタイル調整 */
+        /* 印刷設定 */
         @media print {
             @page { size: landscape; margin: 5mm; }
             body { 
@@ -38,38 +38,26 @@
                 width: 100%;
             }
             .no-print { display: none !important; }
-            .print-break { page-break-before: always; }
             .shadow-sm, .shadow-md, .shadow-lg { box-shadow: none !important; }
             input, textarea, select { border: 1px solid #ccc !important; }
             input:disabled, textarea:disabled { background-color: white !important; color: black !important; }
             select { -webkit-appearance: none; -moz-appearance: none; appearance: none; background: none !important; }
-            
             .overflow-x-auto { overflow: visible !important; }
             .min-w-full { min-width: 100% !important; }
         }
 
-        /* カスタムスクロールバー */
-        .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        /* スクロールバー */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
         .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
-        .animate-fade-in-modal { animation: fadeIn 0.2s ease-out forwards; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.98); }
-            to { opacity: 1; transform: scale(1); }
-        }
-
-        /* カレンダー用スタイル */
-        .grid-cell:hover { background-color: rgba(59, 130, 246, 0.05); }
-        .resizer-handle {
-            position: absolute; top: 0; right: -4px; bottom: 0; width: 10px;
-            cursor: col-resize; z-index: 60; display: flex; align-items: center; justify-content: center;
-        }
-        .resizer-handle:hover .resizer-bar, .resizer-handle.resizing .resizer-bar {
-            background-color: #3b82f6; height: 100%;
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+        
+        /* カレンダー用 */
+        .resizer-handle { position: absolute; top: 0; right: -4px; bottom: 0; width: 10px; cursor: col-resize; z-index: 60; display: flex; align-items: center; justify-content: center; }
+        .resizer-handle:hover .resizer-bar, .resizer-handle.resizing .resizer-bar { background-color: #3b82f6; height: 100%; }
         .resizer-bar { width: 4px; height: 24px; background-color: #d1d5db; border-radius: 2px; transition: all 0.2s; }
     </style>
 </head>
@@ -81,38 +69,18 @@
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
         const { createPortal } = ReactDOM;
 
-        // --- エラー境界コンポーネント ---
+        // --- エラー境界 ---
         class ErrorBoundary extends React.Component {
-            constructor(props) {
-                super(props);
-                this.state = { hasError: false, error: null, errorInfo: null };
-            }
-            static getDerivedStateFromError(error) { return { hasError: true }; }
-            componentDidCatch(error, errorInfo) {
-                this.setState({ error, errorInfo });
-                console.error("App Error:", error, errorInfo);
-            }
+            constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+            static getDerivedStateFromError(error) { return { hasError: true, error }; }
+            componentDidCatch(error, errorInfo) { console.error("ErrorBoundary caught:", error, errorInfo); }
             render() {
-                if (this.state.hasError) {
-                    return (
-                        <div className="min-h-screen flex items-center justify-center bg-red-50 p-6">
-                            <div className="bg-white p-8 rounded-lg shadow-lg max-w-2xl w-full border border-red-100">
-                                <h1 className="text-2xl font-bold text-red-600 mb-4">システムエラーが発生しました</h1>
-                                <p className="text-slate-600 mb-4">
-                                    予期せぬエラーが発生しました。再読み込みを行ってください。<br/>
-                                    エラー詳細: {this.state.error && this.state.error.toString()}
-                                </p>
-                                <button onClick={() => window.location.reload()} className="bg-blue-600 text-white px-6 py-2 rounded">再読み込み</button>
-                                <button onClick={() => { if(confirm('データをリセットしますか？保存されていないデータは消去されます。')) { localStorage.clear(); window.location.reload(); } }} className="text-red-500 underline ml-4">データリセット</button>
-                            </div>
-                        </div>
-                    );
-                }
-                return this.props.children; 
+                if (this.state.hasError) return <div className="p-8 text-red-600 bg-red-50 text-center"><h1>システムエラーが発生しました</h1><p>{this.state.error && this.state.error.toString()}</p><button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-red-600 text-white rounded">再読み込み</button></div>;
+                return this.props.children;
             }
         }
 
-        // --- アイコンラッパー (拡張版) ---
+        // --- 共通コンポーネント ---
         const Icon = React.memo(({ name, size = 18, className = "", onClick, style }) => {
             const ref = useRef(null);
             useEffect(() => {
@@ -124,24 +92,27 @@
                     try { window.lucide.createIcons({ root: ref.current, attrs: { width: size, height: size, class: className } }); } catch (e) {}
                 }
             }, [name, size, className]);
-
             return <span ref={ref} onClick={onClick} style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', minWidth: size, minHeight: size, cursor: onClick ? 'pointer' : 'inherit', ...style }} />;
         });
 
-        // --- シンプル棒グラフコンポーネント (Recharts代替) ---
+        const ModalPortal = ({ children }) => {
+            const el = document.getElementById('portal-root');
+            return el ? createPortal(children, el) : null;
+        };
+
         const SimpleBarChart = ({ data }) => {
-            if (!data || data.length === 0) return <div className="h-full flex items-center justify-center text-slate-400 text-sm">データなし</div>;
+            if (!data || data.length === 0) return <div className="h-full flex items-center justify-center text-slate-400 text-xs">データなし</div>;
             const maxVal = Math.max(...data.map(d => d.users), 1);
             return (
-                <div className="w-full h-full flex items-end gap-1 pt-6 pb-2 px-2 relative">
+                <div className="w-full h-full flex items-end gap-1 pt-4 pb-1 px-1 relative">
                     {data.map((d, i) => (
                         <div key={i} className="flex-1 flex flex-col items-center group relative h-full justify-end">
                             <div className="w-full bg-blue-500 rounded-t hover:bg-blue-600 transition-all relative" style={{ height: `${(d.users / maxVal) * 100}%` }}>
-                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 hidden group-hover:block bg-slate-800 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-10 pointer-events-none">{d.time} : {d.users}名</div>
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 hidden group-hover:block bg-slate-800 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-10">{d.time} : {d.users}名</div>
                             </div>
                         </div>
                     ))}
-                    <div className="absolute bottom-2 left-0 right-0 h-px bg-slate-200"></div>
+                    <div className="absolute bottom-0 left-0 right-0 h-px bg-slate-200"></div>
                 </div>
             );
         };
@@ -186,17 +157,14 @@
                 const endTime = endH + (endM || 0) / 60;
                 let duration = endTime - startTime;
                 if (duration < 0) duration += 24;
-                if (duration > 6) duration -= 1;
+                if (duration > 6) duration -= 1; // 6時間超で1時間休憩
                 return Math.max(0, duration);
             } catch (e) { return 0; }
         };
 
-        const stripHtmlTags = (str) => {
-            if (!str) return '';
-            return str.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<[^>]*>/g, '');
-        };
+        const stripHtmlTags = (str) => str ? str.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<[^>]*>/g, '') : '';
 
-        // --- 初期データ生成関数 ---
+        // --- 初期データ ---
         const getInitialUserState = () => ({
             id: null, name: "新規利用者", status: "未定", 
             application: { applicantName: "", applicantNameKana: "", gender: "", dob: "", age: "", address: "", phone: "", email: "", disabilityType: [], disabilityName: "", disabilityGrade: "", hasExperience: "", todayQuestion: "", visitReason: [], futureGoal: "", desiredService: [], concerns: [], goals: [], isVisitingHospital: "", hospitalName: "", consultedDoctor: "", howDidYouKnow: [], schedule: { trial1: "", trial1Time: "", trial2: "", trial2Time: "", trial3: "", trial3Time: "", certificateDate: "", contractDate: "" } },
@@ -206,380 +174,494 @@
             termination: { date: "", goals: [{ id: 1, target: "", achievement: "", overall: "", satisfaction: "", nextOpinion: "" }, { id: 2, target: "", achievement: "", overall: "", satisfaction: "", nextOpinion: "" }, { id: 3, target: "", achievement: "", overall: "", satisfaction: "", nextOpinion: "" }, { id: 4, target: "", achievement: "", overall: "", satisfaction: "", nextOpinion: "" }] }
         });
 
-        // --- カレンダー・スケジュール用コンポーネント ---
-
-        const ModalPortal = ({ children }) => {
-            const portalRoot = document.getElementById('portal-root');
-            return portalRoot ? createPortal(children, portalRoot) : null;
-        };
-
-        const DatePickerModal = ({ isOpen, onClose, currentDate, onSelectDate }) => {
-            if (!isOpen) return null;
-            const [viewDate, setViewDate] = useState(new Date(currentDate));
-            const year = viewDate.getFullYear();
-            const month = viewDate.getMonth();
-            const handlePrevMonth = () => setViewDate(new Date(year, month - 1, 1));
-            const handleNextMonth = () => setViewDate(new Date(year, month + 1, 1));
-            const handleSelect = (day) => { onSelectDate(new Date(year, month, day)); onClose(); };
-            const firstDay = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            const days = [];
-            for (let i = 0; i < firstDay; i++) days.push(null);
-            for (let i = 1; i <= daysInMonth; i++) days.push(i);
-
+        // --- UI部品 ---
+        const Card = ({ title, children, className = "" }) => (
+            <div className={`bg-white rounded-lg shadow-sm border border-slate-200 mb-6 ${className}`}>
+                {title && <div className="px-6 py-4 border-b border-slate-100"><h3 className="text-lg font-bold text-slate-800">{title}</h3></div>}
+                <div className="p-6">{children}</div>
+            </div>
+        );
+        const InputGroup = ({ label, children, required }) => (
+            <div className="mb-4"><label className="block text-sm font-medium text-slate-600 mb-1">{label} {required && <span className="text-red-500">*</span>}</label>{children}</div>
+        );
+        const TextInput = ({ value, onChange, placeholder, type = "text", disabled, className = "" }) => (
+            <input type={type} className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${disabled ? "bg-slate-100 text-slate-500" : "bg-white border-slate-300"} ${className}`} value={value || ""} onChange={onChange} placeholder={placeholder} disabled={disabled} />
+        );
+        const TextArea = ({ value, onChange, rows = 3, placeholder, disabled, className = "" }) => (
+            <textarea className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${disabled ? "bg-slate-100 text-slate-500" : "bg-white border-slate-300"} ${className}`} rows={rows} value={value || ""} onChange={onChange} placeholder={placeholder} disabled={disabled} />
+        );
+        const StaffSelect = ({ value, onChange, options = [], placeholder = "選択", disabled }) => (
+            <div className="relative">
+                <select className={`w-full px-3 py-2 border rounded-md text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 ${disabled ? "bg-slate-100" : "bg-white border-slate-300"}`} value={value || ""} onChange={onChange} disabled={disabled}>
+                    <option value="">{placeholder}</option>
+                    {options.map(s => <option key={s.id} value={s.name}>{s.name} {s.role ? `(${s.role})` : ''}</option>)}
+                    {value && !options.find(s => s.name === value) && <option value={value}>{value} (未登録)</option>}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500"><Icon name="chevron-down" size={16} /></div>
+            </div>
+        );
+        const Checkbox = ({ label, checked, onChange, disabled }) => (
+            <label className={`flex items-center space-x-2 mr-4 mb-2 ${disabled ? 'opacity-60' : 'cursor-pointer'}`}>
+                <input type="checkbox" checked={checked} onChange={onChange} disabled={disabled} className="w-4 h-4 text-blue-600 rounded border-slate-300" />
+                <span className="text-sm text-slate-700">{label}</span>
+            </label>
+        );
+        const Radio = ({ label, name, value, checked, onChange }) => (
+            <label className="flex items-center space-x-2 cursor-pointer mr-4">
+                <input type="radio" name={name} value={value} checked={checked} onChange={onChange} className="w-4 h-4 text-blue-600 border-slate-300" />
+                <span className="text-sm text-slate-700">{label}</span>
+            </label>
+        );
+        const SectionHeader = ({ text }) => <h4 className="text-md font-bold text-slate-700 mt-6 mb-3 border-l-4 border-blue-500 pl-3">{text}</h4>;
+        const AutoFillDisplay = ({ label, value }) => (
+             <div className="mb-4"><label className="block text-xs font-bold text-blue-600 mb-1 flex items-center">{label} <span className="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-normal">自動反映</span></label><div className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-700 min-h-[38px] flex items-center">{value || "（未入力）"}</div></div>
+        );
+        const AlertBanner = ({ alert, dateLabel, date }) => {
+            if (!alert || !alert.isAlert) return null;
             return (
-                <ModalPortal>
-                    <div className="fixed inset-0 bg-black/20 z-[1000] flex items-center justify-center p-4" onClick={onClose}>
-                        <div className="bg-white rounded-lg shadow-xl p-4 w-72" onClick={e => e.stopPropagation()}>
-                            <div className="flex justify-between items-center mb-4">
-                                <button onClick={handlePrevMonth} className="p-1 hover:bg-gray-100 rounded"><Icon name="chevron-left" size={20}/></button>
-                                <span className="font-bold text-lg">{year}年 {month + 1}月</span>
-                                <button onClick={handleNextMonth} className="p-1 hover:bg-gray-100 rounded"><Icon name="chevron-right" size={20}/></button>
-                            </div>
-                            <div className="grid grid-cols-7 gap-1 text-center text-sm mb-2 font-bold text-gray-500">
-                                <div className="text-red-500">日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div className="text-blue-500">土</div>
-                            </div>
-                            <div className="grid grid-cols-7 gap-1 text-center">
-                                {days.map((d, i) => (
-                                    <div key={i} className="h-8 flex items-center justify-center">
-                                        {d && (
-                                            <button onClick={() => handleSelect(d)} 
-                                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors
-                                                    ${d === currentDate.getDate() && month === currentDate.getMonth() && year === currentDate.getFullYear() 
-                                                        ? 'bg-blue-600 text-white font-bold' : 'hover:bg-blue-50 text-gray-700'}`}>
-                                                {d}
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="mt-4 text-center">
-                                <button onClick={() => { onSelectDate(new Date()); onClose(); }} className="text-sm text-blue-600 font-medium hover:underline">今日へ移動</button>
-                            </div>
-                        </div>
-                    </div>
-                </ModalPortal>
+                <div className={`mb-4 p-4 rounded-md border flex items-start gap-3 shadow-sm ${alert.type === 'danger' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-yellow-50 border-yellow-200 text-yellow-800'}`}>
+                    <Icon name="bell" className={`flex-shrink-0 ${alert.type === 'danger' ? 'text-red-500' : 'text-yellow-600'}`} />
+                    <div><div className="font-bold">期限の確認が必要です</div><div className="text-sm mt-1">{alert.message}（{dateLabel}: {date}）</div></div>
+                </div>
             );
         };
 
-        const CreateEventModal = ({ isOpen, onClose, defaultStart, defaultResourceId, editingEvent, onSave, onDelete }) => {
-            const [formData, setFormData] = useState({ title: '', date: '', startTime: '', endTime: '', description: '', location: '' });
-
-            useEffect(() => {
-                if (isOpen) {
-                    if (editingEvent) {
-                        const start = new Date(editingEvent.start);
-                        const end = new Date(editingEvent.end);
-                        setFormData({
-                            title: editingEvent.title || '',
-                            description: stripHtmlTags(editingEvent.description) || '',
-                            location: editingEvent.location || '',
-                            date: start.toISOString().split('T')[0],
-                            startTime: start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false}),
-                            endTime: end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false}),
-                        });
-                    } else if (defaultStart) {
-                        const d = new Date(defaultStart);
-                        const e = new Date(d); e.setMinutes(e.getMinutes() + 60);
-                        setFormData({
-                            title: '', description: '', location: '',
-                            date: d.toISOString().split('T')[0],
-                            startTime: d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false}),
-                            endTime: e.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: false}),
-                        });
-                    }
-                }
-            }, [isOpen, defaultStart, editingEvent]);
-
-            const handleSubmit = () => {
-                if (!formData.title || !formData.date || !formData.startTime || !formData.endTime) return;
-                const startIso = new Date(`${formData.date}T${formData.startTime}`).toISOString();
-                const endIso = new Date(`${formData.date}T${formData.endTime}`).toISOString();
-                const eventData = { 
-                    ...formData, 
-                    start: startIso, 
-                    end: endIso, 
-                    resourceId: editingEvent ? editingEvent.resourceId : defaultResourceId,
-                    id: editingEvent ? editingEvent.id : Date.now().toString()
-                };
-                onSave(eventData);
-                onClose();
-            };
-
-            if (!isOpen) return null;
-
-            return (
-                <ModalPortal>
-                    <div className="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center p-4">
-                        <div className="bg-white rounded-lg shadow-xl w-full max-w-md flex flex-col">
-                            <div className="p-4 border-b flex justify-between items-center bg-blue-50">
-                                <h2 className="text-lg font-bold text-blue-800 flex items-center gap-2"><Icon name={editingEvent ? "edit" : "calendar-plus"} size={20}/> {editingEvent ? "予定の編集" : "予定の作成"}</h2>
-                                <button onClick={onClose}><Icon name="x" size={20} /></button>
-                            </div>
-                            <div className="p-5 space-y-4">
-                                <div><label className="block text-sm font-medium text-gray-700 mb-1">タイトル</label><input type="text" className="w-full border rounded p-2" placeholder="会議、面談など" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} autoFocus /></div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div><label className="block text-sm font-medium text-gray-700 mb-1">日付</label><input type="date" className="w-full border rounded p-2" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} /></div>
-                                    <div className="flex gap-2">
-                                        <div className="flex-1"><label className="block text-sm font-medium text-gray-700 mb-1">開始</label><input type="time" className="w-full border rounded p-2" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} /></div>
-                                        <div className="flex-1"><label className="block text-sm font-medium text-gray-700 mb-1">終了</label><input type="time" className="w-full border rounded p-2" value={formData.endTime} onChange={e => setFormData({...formData, endTime: e.target.value})} /></div>
-                                    </div>
-                                </div>
-                                <div><label className="block text-sm font-medium text-gray-700 mb-1">場所</label><input type="text" className="w-full border rounded p-2" placeholder="会議室A" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} /></div>
-                                <div><label className="block text-sm font-medium text-gray-700 mb-1">詳細</label><textarea className="w-full border rounded p-2 h-24" placeholder="詳細を入力..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}></textarea></div>
-                            </div>
-                            <div className="p-4 border-t bg-gray-50 flex justify-end gap-2 rounded-b-lg">
-                                {editingEvent && <button onClick={() => { if(confirm("削除しますか？")) { onDelete(editingEvent.id); onClose(); }}} className="px-4 py-2 text-red-600 border border-red-200 hover:bg-red-50 rounded mr-auto">削除</button>}
-                                <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded">キャンセル</button>
-                                <button onClick={handleSubmit} disabled={!formData.title} className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">保存</button>
-                            </div>
-                        </div>
-                    </div>
-                </ModalPortal>
+        // --- 要約情報ビュー ---
+        const SummaryView = ({ user }) => {
+            const { application, assessment, plan, monitoring, termination } = user;
+            const monitoringAlert = checkDeadlineAlert(plan?.monitoringDate, monitoring?.date, "モニタリング");
+            const terminationAlert = checkDeadlineAlert(plan?.periodEnd, termination?.date, "終了評価");
+            const InfoItem = ({ label, value, important = false }) => (
+                <div className="mb-3"><div className={`text-xs font-bold mb-1 ${important ? 'text-red-600' : 'text-slate-500'}`}>{label} {important && <span className="text-xs bg-red-100 text-red-600 px-1 rounded ml-1">重要</span>}</div><div className={`text-sm ${value ? 'text-slate-800' : 'text-slate-400 italic'}`}>{value || "（情報なし）"}</div></div>
             );
-        };
-
-        const SchedulerGrid = React.memo(({ viewMode, currentDate, resources, onEventClick, onCellClick, sidebarWidth, onSidebarResize }) => {
-            const isResizing = useRef(false);
-            const startResizing = useCallback((e) => { e.preventDefault(); isResizing.current = true; }, []);
-            const stopResizing = useCallback(() => { isResizing.current = false; }, []);
-            const resize = useCallback((e) => { if (isResizing.current && e.clientX > 75 && e.clientX < 500) onSidebarResize(e.clientX); }, [onSidebarResize]);
-            useEffect(() => { window.addEventListener("mousemove", resize); window.addEventListener("mouseup", stopResizing); return () => { window.removeEventListener("mousemove", resize); window.removeEventListener("mouseup", stopResizing); }; }, [resize, stopResizing]);
-
-            const days = useMemo(() => {
-                const d = new Date(currentDate);
-                if (viewMode === 'week') {
-                    const day = d.getDay();
-                    d.setDate(d.getDate() - day);
-                    return Array.from({length: 7}, (_, i) => { const t = new Date(d); t.setDate(t.getDate() + i); return t; });
-                }
-                return [new Date(d)];
-            }, [currentDate, viewMode]);
-
-            const startHour = 8; const endHour = 20; const totalHours = endHour - startHour + 1;
-            const hours = Array.from({ length: totalHours }, (_, i) => i + startHour);
-
             return (
-                <div className="flex flex-col h-full overflow-hidden relative">
-                    <div className="flex-1 flex flex-col overflow-auto custom-scrollbar relative">
-                        <div className="flex border-b bg-gray-50 sticky top-0 z-[60] min-w-[1000px]">
-                            <div className="flex-shrink-0 border-r bg-gray-100 sticky left-0 z-[60] relative" style={{ width: sidebarWidth }}>
-                                {viewMode === 'day' && <div className="absolute inset-0 flex items-center justify-center font-bold text-gray-500 text-2xl">{currentDate.getDate()} <span className="text-sm ml-1">{currentDate.toLocaleDateString('ja-JP', { weekday: 'short' })}</span></div>}
-                                <div className="resizer-handle" onMouseDown={startResizing}><div className="resizer-bar"></div></div>
-                            </div>
-                            <div className="flex-1 flex">
-                                {viewMode === 'week' 
-                                    ? days.map((d, i) => <div key={i} className={`flex-1 p-2 text-center text-sm border-r font-medium ${d.toDateString() === new Date().toDateString() ? 'bg-blue-50 text-blue-600' : ''}`}>{d.toLocaleDateString('ja-JP', { weekday: 'short', day: 'numeric' })}</div>)
-                                    : hours.map(h => <div key={h} className="flex-1 border-r py-2 text-center text-sm text-gray-500">{h}:00</div>)
-                                }
-                            </div>
+                <div className="animate-fade-in">
+                    {monitoringAlert.isAlert && <AlertBanner alert={monitoringAlert} dateLabel="予定日" date={plan.monitoringDate} />}
+                    {terminationAlert.isAlert && <AlertBanner alert={terminationAlert} dateLabel="計画終了日" date={plan.periodEnd} />}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                        <div className="space-y-6">
+                            <Card title="基本情報・緊急連絡先" className="border-l-4 border-l-blue-500">
+                                <div className="flex justify-between items-start mb-4"><div><h2 className="text-2xl font-bold text-slate-800">{application.applicantName} <span className="text-sm font-normal text-slate-500">({application.applicantNameKana})</span></h2><div className="flex gap-2 mt-1"><span className="text-sm bg-slate-100 px-2 py-0.5 rounded text-slate-600">{application.gender}</span><span className="text-sm bg-slate-100 px-2 py-0.5 rounded text-slate-600">{application.age}歳</span>{(application.disabilityType || []).map(t => (<span key={t} className="text-sm bg-blue-100 px-2 py-0.5 rounded text-blue-700">{t}</span>))}</div></div><div className="text-right"><div className="text-sm font-bold text-slate-500">障害等級</div><div className="text-lg">{application.disabilityGrade || "-"}</div></div></div>
+                                <div className="grid grid-cols-2 gap-4 bg-red-50 p-4 rounded-md border border-red-100 mb-4"><div><div className="text-xs font-bold text-red-700 mb-1">緊急連絡先</div><div className="font-bold text-slate-800">{assessment.emergencyContact.name} <span className="text-sm font-normal">({assessment.emergencyContact.relation})</span></div><div className="text-slate-700">{assessment.emergencyContact.tel}</div></div><div><div className="text-xs font-bold text-red-700 mb-1">診断名・病名</div><div className="font-bold text-slate-800">{assessment.medical.diagnosis || application.disabilityName || "（未記入）"}</div></div></div>
+                                <InfoItem label="通院先・主治医" value={`${assessment.medical.hospital} / ${assessment.medical.doctor}`} /><InfoItem label="服薬状況・管理" value={assessment.medical.medication} />
+                            </Card>
+                            <Card title="特性・配慮事項 (Attention)" className="border-l-4 border-l-orange-400"><InfoItem label="調子を崩す前兆（サイン）" value={assessment.triggers} important /><InfoItem label="調子を崩した時の対処法" value={assessment.coping} important /><div className="my-4 border-t border-slate-100"></div><InfoItem label="得意なこと・強み" value={assessment.dailyLife.strengths || assessment.workHistory.map(w => w.content).join(", ")} /><InfoItem label="苦手なこと・課題" value={assessment.dailyLife.challenges} /><InfoItem label="コミュニケーションの特性" value={assessment.dailyLife.commSkill} /></Card>
                         </div>
-
-                        <div className="min-w-[1000px] relative">
-                            {resources.map((resource) => (
-                                <div key={resource.id} className="flex border-b min-h-[100px] hover:bg-gray-50">
-                                    <div className="flex-shrink-0 p-2 border-r flex items-center bg-white sticky left-0 z-40 shadow-sm" style={{ width: sidebarWidth }}>
-                                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs mr-2">{resource.name ? resource.name.slice(0, 2) : '?'}</div>
-                                        <div className="overflow-hidden">
-                                            <div className="text-sm font-medium truncate" title={resource.name}>{resource.name}</div>
-                                            <div className="text-[10px] text-gray-500 truncate">{resource.role}</div>
-                                        </div>
-                                    </div>
-                                    <div className="flex-1 relative w-full">
-                                        {viewMode === 'week' ? (
-                                            <div className="flex h-full">
-                                                {days.map((day, dIdx) => {
-                                                    const dayStart = new Date(day); dayStart.setHours(0,0,0,0);
-                                                    const dayEnd = new Date(day); dayEnd.setHours(23,59,59,999);
-                                                    const dayEvents = (resource.events || []).filter(e => { const s = new Date(e.start); return s < dayEnd && new Date(e.end) > dayStart; });
-                                                    return (
-                                                        <div key={dIdx} className="flex-1 border-r h-full relative p-1 cursor-pointer hover:bg-blue-50/30" onClick={() => onCellClick(resource.id, new Date(day.setHours(9,0,0,0)))}>
-                                                            {dayEvents.map(evt => (
-                                                                <div key={evt.id} onClick={(e) => { e.stopPropagation(); onEventClick(evt); }} className="mb-1 rounded p-1 text-xs shadow-sm truncate cursor-pointer hover:opacity-90 bg-blue-500 text-white">
-                                                                    {evt.title}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        ) : (
-                                            <div className="flex h-full relative">
-                                                {hours.map(h => (
-                                                    <div key={h} className="flex-1 border-r h-full relative cursor-pointer hover:bg-blue-50/30" onClick={(e) => {
-                                                        const rect = e.currentTarget.getBoundingClientRect();
-                                                        const x = e.clientX - rect.left;
-                                                        const clickTime = new Date(currentDate); clickTime.setHours(h, x > rect.width/2 ? 30 : 0, 0, 0);
-                                                        onCellClick(resource.id, clickTime);
-                                                    }}></div>
-                                                ))}
-                                                {(resource.events || []).map(evt => {
-                                                    const start = new Date(evt.start); const end = new Date(evt.end);
-                                                    const sHour = start.getHours() + start.getMinutes()/60;
-                                                    const eHour = end.getHours() + end.getMinutes()/60;
-                                                    if (eHour < startHour || sHour > endHour + 1) return null;
-                                                    const left = ((Math.max(sHour, startHour) - startHour) / totalHours) * 100;
-                                                    const width = ((Math.min(eHour, endHour + 1) - Math.max(sHour, startHour)) / totalHours) * 100;
-                                                    return (
-                                                        <div key={evt.id} onClick={(e) => { e.stopPropagation(); onEventClick(evt); }}
-                                                            className="absolute top-1 bottom-1 rounded text-xs p-1 shadow-sm overflow-hidden cursor-pointer hover:opacity-90 bg-blue-500 text-white"
-                                                            style={{ left: `${left}%`, width: `${width}%` }}>
-                                                            {evt.title}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
+                        <div className="space-y-6">
+                            <Card title="支援目標・方針 (Goal)" className="border-l-4 border-l-green-500"><InfoItem label="本人の希望（将来の目標）" value={plan.userDesire || application.futureGoal} /><div className="bg-green-50 p-3 rounded mb-3"><InfoItem label="短期目標（〜6ヶ月）" value={plan.shortTermGoal} /></div><InfoItem label="長期目標（約1年）" value={plan.longTermGoal} /><InfoItem label="具体的な支援内容" value={plan.supportContent} /></Card>
+                            <Card title="直近の状況・評価 (Status)" className="border-l-4 border-l-indigo-500">
+                                 <div className="mb-4"><div className="text-xs font-bold text-slate-500 mb-1">直近のモニタリング ({monitoring.date || "実施なし"})</div><div className="bg-slate-50 p-3 rounded border border-slate-100"><div className="text-sm mb-2"><span className="font-bold">現状:</span> {monitoring.currentStatus || "記録なし"}</div><div className="text-sm mb-2"><span className="font-bold">満足度:</span> {monitoring.satisfaction || "-"}</div><div className="text-sm"><span className="font-bold">今後の課題:</span> {monitoring.futureTasks || "-"}</div></div></div>
+                                {termination.date && (<div className="mb-4"><div className="text-xs font-bold text-slate-500 mb-1">終了評価 ({termination.date})</div><div className="bg-slate-50 p-3 rounded border border-slate-100"><div className="text-sm">{termination.goals.map(g => g.overall).filter(o => o).join(" / ") || "全体評価の記述なし"}</div></div></div>)}
+                                <InfoItem label="事業所に望む支援（アセスメントより）" value={assessment.desiredSupport.detail || assessment.desiredSupport.items.join(", ")} />
+                            </Card>
                         </div>
                     </div>
                 </div>
             );
-        });
+        };
 
+        // --- 職員シフト表(月) ---
+        const StaffMonthlyShift = ({ staffs, staffShifts, onShiftChange }) => {
+            const [currentMonth, setCurrentMonth] = useState(new Date());
+            const getDaysInMonth = (date) => {
+                const year = date.getFullYear(); const month = date.getMonth(); const days = []; const lastDay = new Date(year, month + 1, 0).getDate();
+                for (let i = 1; i <= lastDay; i++) { days.push(new Date(year, month, i)); } return days;
+            };
+            const days = getDaysInMonth(currentMonth);
+            const weekDays = ["日","月","火","水","木","金","土"];
+            const shiftOptions = [ { value: "", label: "休", color: "bg-slate-50 text-slate-400" }, { value: "09:00-18:00", label: "フル", color: "bg-blue-100 text-blue-700" }, { value: "09:00-13:00", label: "AM", color: "bg-green-100 text-green-700" }, { value: "13:00-18:00", label: "PM", color: "bg-orange-100 text-orange-700" }, { value: "10:00-16:00", label: "短", color: "bg-purple-100 text-purple-700" } ];
+            const getShiftColor = (time) => { const opt = shiftOptions.find(o => o.value === time); return opt ? opt.color : "bg-white text-gray-700 font-normal"; };
+            const calculateDailyTotal = (date) => {
+                const dateKey = formatDateKey(date);
+                let total = 0;
+                staffs.forEach(staff => { const shift = (staffShifts[dateKey] && staffShifts[dateKey][staff.id]); if (shift && shift.time) total += calculateWorkHours(shift.time); });
+                return total;
+            };
+            const datalistId = "shift-times-list";
+
+            return (
+                <div className="max-w-full mx-auto animate-fade-in p-2">
+                    <div className="flex justify-between items-center mb-4 no-print">
+                        <h1 className="text-xl font-bold text-slate-800">職員シフト表(月)</h1>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => window.print()} className="px-3 py-1 border rounded-md bg-white hover:bg-slate-50 text-sm flex items-center gap-1"><Icon name="printer" size={14} /> 印刷</button>
+                            <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))} className="p-1 hover:bg-slate-200 rounded"><Icon name="chevron-left" /></button>
+                            <span className="text-lg font-bold">{currentMonth.getFullYear()}年 {currentMonth.getMonth() + 1}月</span>
+                            <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))} className="p-1 hover:bg-slate-200 rounded"><Icon name="chevron-right" /></button>
+                        </div>
+                    </div>
+                    <datalist id={datalistId}>{shiftOptions.filter(o=>o.value).map(o=><option key={o.value} value={o.value} />)}</datalist>
+                    <div className="bg-white border border-slate-200 rounded-lg overflow-x-auto shadow-sm inline-block min-w-full print:border-none print:shadow-none">
+                        <table className="min-w-full divide-y divide-slate-200 text-xs border-collapse">
+                            <thead className="bg-slate-50">
+                                <tr>
+                                    <th className="px-2 py-2 text-left font-bold text-slate-500 uppercase sticky left-0 bg-slate-50 z-10 w-32 border-r border-b text-[11px]">職員名</th>
+                                    {days.map(d => (<th key={d.getDate()} className={`p-1 text-center font-bold min-w-[36px] border-r border-b text-[10px] ${d.getDay()===0?'text-red-500 bg-red-50':d.getDay()===6?'text-blue-500 bg-blue-50':'text-slate-500'}`}>{d.getDate()}<br/>{weekDays[d.getDay()]}</th>))}
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-slate-200">
+                                {staffs.map(staff => (
+                                    <tr key={staff.id}>
+                                        <td className="px-2 py-1 font-medium text-slate-900 sticky left-0 bg-white z-10 border-r border-b text-[11px]">{staff.name}<div className="text-[9px] text-slate-400 font-normal">{staff.role}</div></td>
+                                        {days.map(date => {
+                                            const dateKey = formatDateKey(date);
+                                            const shift = (staffShifts[dateKey] && staffShifts[dateKey][staff.id]) || { time: "", checked: false };
+                                            return (
+                                                <td key={date.toISOString()} className={`p-0 border-r border-b h-8 relative group ${getShiftColor(shift.time)}`}>
+                                                    <input type="text" list={datalistId} className="w-full h-full text-center text-[10px] focus:outline-none focus:bg-blue-50 border-none bg-transparent" value={shift.time} onChange={(e) => onShiftChange(date, staff.id, e.target.value)} />
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="bg-slate-100 font-bold text-slate-600">
+                                <tr>
+                                    <td className="px-2 py-1 sticky left-0 bg-slate-100 z-10 border-r border-t text-[11px]">合計稼働(h)</td>
+                                    {days.map(date => { const total = calculateDailyTotal(date); return (<td key={date.toISOString()} className="text-center p-1 border-r border-t text-[10px]">{total > 0 ? total : '-'}</td>); })}
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 職員スケジュール管理 (カレンダー) ---
         const StaffScheduleManager = ({ staffs }) => {
             const [viewMode, setViewMode] = useState('week');
             const [currentDate, setCurrentDate] = useState(new Date());
             const [events, setEvents] = useState([]);
             const [sidebarWidth, setSidebarWidth] = useState(200);
-            
-            // Modal states
             const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
             const [isCreateOpen, setIsCreateOpen] = useState(false);
             const [createParams, setCreateParams] = useState({});
             const [editingEvent, setEditingEvent] = useState(null);
 
-            // Load events
-            useEffect(() => {
-                const savedEvents = localStorage.getItem('knowbe_schedule_events');
-                if (savedEvents) {
-                    try { setEvents(JSON.parse(savedEvents)); } catch(e) {}
-                }
-            }, []);
+            useEffect(() => { const saved = localStorage.getItem('knowbe_schedule_events'); if (saved) { try { setEvents(JSON.parse(saved)); } catch(e) {} } }, []);
+            useEffect(() => { localStorage.setItem('knowbe_schedule_events', JSON.stringify(events)); }, [events]);
 
-            // Save events
-            useEffect(() => {
-                localStorage.setItem('knowbe_schedule_events', JSON.stringify(events));
-            }, [events]);
+            const resources = useMemo(() => staffs.map(s => ({ id: s.id.toString(), name: s.name, role: s.role, events: events.filter(e => e.resourceId === s.id.toString()) })), [staffs, events]);
+            const handleSaveEvent = (eventData) => { if (editingEvent) { setEvents(events.map(e => e.id === eventData.id ? eventData : e)); } else { setEvents([...events, eventData]); } };
+            const handleDeleteEvent = (eventId) => { setEvents(events.filter(e => e.id !== eventId)); };
 
-            const resources = useMemo(() => {
-                return staffs.map(staff => ({
-                    id: staff.id.toString(),
-                    name: staff.name,
-                    role: staff.role,
-                    events: events.filter(e => e.resourceId === staff.id.toString())
-                }));
-            }, [staffs, events]);
+            // Gridコンポーネント (再定義)
+            const SchedulerGrid = ({ viewMode, currentDate, resources, onEventClick, onCellClick, sidebarWidth }) => {
+                const days = useMemo(() => {
+                    const d = new Date(currentDate);
+                    if (viewMode === 'week') { d.setDate(d.getDate() - d.getDay()); return Array.from({length: 7}, (_, i) => { const t = new Date(d); t.setDate(t.getDate() + i); return t; }); }
+                    return [new Date(d)];
+                }, [currentDate, viewMode]);
+                const startHour = 8; const hours = Array.from({ length: 13 }, (_, i) => i + startHour); // 8:00 - 20:00
 
-            const handleSaveEvent = (eventData) => {
-                if (editingEvent) {
-                    setEvents(events.map(e => e.id === eventData.id ? eventData : e));
-                } else {
-                    setEvents([...events, eventData]);
-                }
+                return (
+                    <div className="flex flex-col h-full overflow-hidden relative">
+                        <div className="flex-1 flex flex-col overflow-auto custom-scrollbar relative">
+                            <div className="flex border-b bg-gray-50 sticky top-0 z-[60] min-w-[1000px]">
+                                <div className="flex-shrink-0 border-r bg-gray-100 sticky left-0 z-[60] p-2 font-bold text-gray-500" style={{ width: sidebarWidth }}>
+                                    {viewMode === 'day' && <span>{currentDate.getDate()} ({['日','月','火','水','木','金','土'][currentDate.getDay()]})</span>}
+                                </div>
+                                <div className="flex-1 flex">
+                                    {viewMode === 'week' ? days.map((d, i) => <div key={i} className="flex-1 p-2 text-center text-sm border-r font-medium">{d.getDate()} ({['日','月','火','水','木','金','土'][d.getDay()]})</div>)
+                                    : hours.map(h => <div key={h} className="flex-1 border-r py-2 text-center text-sm text-gray-500">{h}:00</div>)}
+                                </div>
+                            </div>
+                            <div className="min-w-[1000px] relative">
+                                {resources.map(res => (
+                                    <div key={res.id} className="flex border-b min-h-[80px] hover:bg-gray-50">
+                                        <div className="flex-shrink-0 p-2 border-r bg-white sticky left-0 z-40" style={{ width: sidebarWidth }}>
+                                            <div className="font-bold text-sm">{res.name}</div><div className="text-xs text-gray-500">{res.role}</div>
+                                        </div>
+                                        <div className="flex-1 relative w-full">
+                                            {viewMode === 'week' ? (
+                                                <div className="flex h-full">{days.map((day, di) => (
+                                                    <div key={di} className="flex-1 border-r h-full p-1 cursor-pointer hover:bg-blue-50/50" onClick={() => onCellClick(res.id, new Date(day.setHours(9,0,0,0)))}>
+                                                        {res.events.filter(e => new Date(e.start).getDate() === day.getDate()).map(e => (
+                                                            <div key={e.id} onClick={(ev) => {ev.stopPropagation(); onEventClick(e);}} className="bg-blue-500 text-white text-xs p-1 rounded mb-1 truncate">{e.title}</div>
+                                                        ))}
+                                                    </div>
+                                                ))}</div>
+                                            ) : (
+                                                <div className="flex h-full relative">
+                                                    {hours.map(h => <div key={h} className="flex-1 border-r h-full" />)}
+                                                    {res.events.map(e => {
+                                                        const s = new Date(e.start); const en = new Date(e.end);
+                                                        const startH = s.getHours() + s.getMinutes()/60; const endH = en.getHours() + en.getMinutes()/60;
+                                                        if(endH < 8 || startH > 20) return null;
+                                                        const left = ((Math.max(startH, 8) - 8) / 13) * 100; const width = ((Math.min(endH, 21) - Math.max(startH, 8)) / 13) * 100;
+                                                        return <div key={e.id} onClick={(ev) => {ev.stopPropagation(); onEventClick(e);}} className="absolute top-1 bottom-1 bg-blue-500 text-white text-xs p-1 rounded truncate cursor-pointer" style={{left: `${left}%`, width: `${width}%`}}>{e.title}</div>
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                );
             };
 
-            const handleDeleteEvent = (eventId) => {
-                setEvents(events.filter(e => e.id !== eventId));
+            const DatePickerModal = ({ isOpen, onClose, currentDate, onSelectDate }) => {
+                if(!isOpen) return null;
+                return (
+                    <ModalPortal><div className="fixed inset-0 bg-black/30 z-[1000] flex items-center justify-center" onClick={onClose}>
+                        <div className="bg-white p-4 rounded shadow-lg" onClick={e=>e.stopPropagation()}>
+                            <input type="date" value={formatDateKey(currentDate)} onChange={e => { onSelectDate(new Date(e.target.value)); onClose(); }} />
+                        </div>
+                    </div></ModalPortal>
+                );
+            };
+
+            const CreateEventModal = ({ isOpen, onClose, defaultStart, defaultResourceId, editingEvent, onSave, onDelete }) => {
+                const [form, setForm] = useState({ title: '', date: '', start: '09:00', end: '10:00' });
+                useEffect(() => {
+                    if(isOpen) {
+                        if(editingEvent) {
+                            const s = new Date(editingEvent.start); const e = new Date(editingEvent.end);
+                            setForm({ title: editingEvent.title, date: formatDateKey(s), start: s.toTimeString().slice(0,5), end: e.toTimeString().slice(0,5) });
+                        } else {
+                            const d = new Date(defaultStart);
+                            setForm({ title: '', date: formatDateKey(d), start: d.toTimeString().slice(0,5), end: new Date(d.getTime()+3600000).toTimeString().slice(0,5) });
+                        }
+                    }
+                }, [isOpen, editingEvent, defaultStart]);
+
+                if(!isOpen) return null;
+                const handleSubmit = () => {
+                    onSave({
+                        id: editingEvent ? editingEvent.id : Date.now().toString(),
+                        resourceId: editingEvent ? editingEvent.resourceId : defaultResourceId,
+                        title: form.title,
+                        start: new Date(`${form.date}T${form.start}`).toISOString(),
+                        end: new Date(`${form.date}T${form.end}`).toISOString()
+                    });
+                    onClose();
+                };
+
+                return (
+                    <ModalPortal><div className="fixed inset-0 bg-black/30 z-[1000] flex items-center justify-center">
+                        <div className="bg-white p-6 rounded w-96 space-y-4">
+                            <h3 className="font-bold text-lg">{editingEvent ? '予定編集' : '予定作成'}</h3>
+                            <input className="w-full border p-2 rounded" placeholder="タイトル" value={form.title} onChange={e=>setForm({...form, title:e.target.value})} />
+                            <input type="date" className="w-full border p-2 rounded" value={form.date} onChange={e=>setForm({...form, date:e.target.value})} />
+                            <div className="flex gap-2">
+                                <input type="time" className="w-full border p-2 rounded" value={form.start} onChange={e=>setForm({...form, start:e.target.value})} />
+                                <input type="time" className="w-full border p-2 rounded" value={form.end} onChange={e=>setForm({...form, end:e.target.value})} />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                                {editingEvent && <button onClick={()=>{onDelete(editingEvent.id); onClose();}} className="text-red-500">削除</button>}
+                                <button onClick={onClose}>キャンセル</button>
+                                <button onClick={handleSubmit} className="bg-blue-500 text-white px-4 py-2 rounded">保存</button>
+                            </div>
+                        </div>
+                    </div></ModalPortal>
+                );
             };
 
             return (
                 <div className="flex flex-col h-full bg-white relative animate-fade-in">
-                    <header className="flex items-center justify-between p-4 border-b bg-white shadow-sm z-10 sticky top-0">
-                         <div className="flex items-center gap-4">
-                            <h1 className="text-xl font-bold text-gray-700 hidden md:block">スケジュール</h1>
-                            <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                                <button onClick={() => setViewMode('week')} className={`px-3 py-1 text-sm rounded-md ${viewMode === 'week' ? 'bg-white shadow text-blue-600 font-bold' : 'text-gray-500'}`}>週間</button>
-                                <button onClick={() => setViewMode('day')} className={`px-3 py-1 text-sm rounded-md ${viewMode === 'day' ? 'bg-white shadow text-blue-600 font-bold' : 'text-gray-500'}`}>日次</button>
-                            </div>
+                    <header className="flex items-center justify-between p-4 border-b bg-white">
+                        <div className="flex items-center gap-4"><h1 className="text-xl font-bold">スケジュール</h1>
+                            <div className="flex bg-gray-100 rounded p-1"><button onClick={()=>setViewMode('week')} className={`px-3 py-1 rounded ${viewMode==='week'?'bg-white shadow':''}`}>週</button><button onClick={()=>setViewMode('day')} className={`px-3 py-1 rounded ${viewMode==='day'?'bg-white shadow':''}`}>日</button></div>
                         </div>
-                        <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded" onClick={() => setIsDatePickerOpen(true)}>
-                                <span className="text-lg font-bold text-gray-700">{currentDate.toLocaleDateString('ja-JP')}</span>
-                                <Icon name="chevron-down" size={16} className="text-gray-400"/>
-                            </div>
-                            <div className="flex items-center border rounded overflow-hidden">
-                                <button onClick={() => { const d = new Date(currentDate); d.setDate(d.getDate() - (viewMode==='week'?7:1)); setCurrentDate(d); }} className="p-2 hover:bg-gray-100"><Icon name="chevron-left" /></button>
-                                <button onClick={() => setCurrentDate(new Date())} className="px-3 text-sm hover:bg-gray-50 border-l border-r">今日</button>
-                                <button onClick={() => { const d = new Date(currentDate); d.setDate(d.getDate() + (viewMode==='week'?7:1)); setCurrentDate(d); }} className="p-2 hover:bg-gray-100"><Icon name="chevron-right" /></button>
-                            </div>
+                        <div className="flex items-center gap-2">
+                            <button onClick={()=>setIsDatePickerOpen(true)} className="font-bold text-lg">{currentDate.toLocaleDateString()}</button>
+                            <button onClick={()=>setCurrentDate(new Date())} className="px-2 border rounded">今日</button>
                         </div>
                     </header>
-
                     <main className="flex-1 overflow-hidden relative">
-                        <SchedulerGrid 
-                            viewMode={viewMode}
-                            currentDate={currentDate}
-                            resources={resources}
-                            onEventClick={(evt) => { setEditingEvent(evt); setIsCreateOpen(true); }}
-                            onCellClick={(resId, time) => { setCreateParams({ start: time, resourceId: resId }); setEditingEvent(null); setIsCreateOpen(true); }}
-                            sidebarWidth={sidebarWidth}
-                            onSidebarResize={setSidebarWidth}
-                        />
+                        <SchedulerGrid viewMode={viewMode} currentDate={currentDate} resources={resources} onEventClick={(e)=>{setEditingEvent(e); setIsCreateOpen(true);}} onCellClick={(rid, t)=>{setCreateParams({start:t, resourceId:rid}); setEditingEvent(null); setIsCreateOpen(true);}} sidebarWidth={sidebarWidth} />
                     </main>
-
-                    <DatePickerModal isOpen={isDatePickerOpen} onClose={() => setIsDatePickerOpen(false)} currentDate={currentDate} onSelectDate={setCurrentDate} />
-                    <CreateEventModal 
-                        isOpen={isCreateOpen} 
-                        onClose={() => setIsCreateOpen(false)} 
-                        defaultStart={createParams.start}
-                        defaultResourceId={createParams.resourceId}
-                        editingEvent={editingEvent}
-                        onSave={handleSaveEvent}
-                        onDelete={handleDeleteEvent}
-                    />
+                    <DatePickerModal isOpen={isDatePickerOpen} onClose={()=>setIsDatePickerOpen(false)} currentDate={currentDate} onSelectDate={setCurrentDate} />
+                    <CreateEventModal isOpen={isCreateOpen} onClose={()=>setIsCreateOpen(false)} defaultStart={createParams.start} defaultResourceId={createParams.resourceId} editingEvent={editingEvent} onSave={handleSaveEvent} onDelete={handleDeleteEvent} />
                 </div>
             );
         };
 
+        // --- シフト配置シミュレーション ---
+        const StaffShiftManagement = ({ staffs, userShifts, users }) => {
+            const [currentDate, setCurrentDate] = useState(new Date());
+            const [staffShifts, setStaffShifts] = useState({});
+            const [selectedDate, setSelectedDate] = useState(null);
+            const [isModalOpen, setIsModalOpen] = useState(false);
 
-        // --- 共通UIコンポーネント (フォーム類は省略せず記述) ---
-        // (省略なしのInputGroup等は上で定義済み)
-        
-        // ... (ApplicationForm, AssessmentForm, PlanForm, MonitoringForm, TerminationForm, StaffManagement, UserShiftManagement, StaffShiftManagement, StaffMonthlyShift は前回と同じなので省略しませんが、長くなるためここでは前回の内容がそのまま入っていると仮定して、Appコンポーネントの修正のみ示します)
-        
-        // --- メインアプリケーション ---
+            useEffect(() => { const s = localStorage.getItem("knowbe_staff_shifts"); if(s) setStaffShifts(JSON.parse(s)); }, []);
+            useEffect(() => { localStorage.setItem("knowbe_staff_shifts", JSON.stringify(staffShifts)); }, [staffShifts]);
+
+            const handleDateClick = (date) => { setSelectedDate(date); setIsModalOpen(true); };
+            const dateKey = selectedDate ? formatDateKey(selectedDate) : null;
+            
+            // 集計ロジック
+            const dayUserShifts = userShifts[dateKey] || {};
+            const activeUsers = Object.values(dayUserShifts).filter(s => s.checked).length;
+            const dayStaffShifts = staffShifts[dateKey] || {};
+            const activeStaffs = Object.values(dayStaffShifts).filter(s => s.checked);
+            let staffHours = 0;
+            activeStaffs.forEach(s => staffHours += calculateWorkHours(s.time));
+            const fte = staffHours / 8;
+            const ratio = fte > 0 ? (activeUsers / fte).toFixed(1) : 0;
+
+            const getCalendarDays = () => {
+                const year = currentDate.getFullYear(); const month = currentDate.getMonth();
+                const days = [];
+                const firstDay = new Date(year, month, 1).getDay();
+                const lastDay = new Date(year, month+1, 0).getDate();
+                for(let i=0; i<firstDay; i++) days.push(null);
+                for(let i=1; i<=lastDay; i++) days.push(new Date(year, month, i));
+                return days;
+            };
+
+            const handleShiftChange = (sid, field, val) => {
+                const current = staffShifts[dateKey] || {};
+                const s = current[sid] || { time: "09:00-18:00", checked: false };
+                setStaffShifts({ ...staffShifts, [dateKey]: { ...current, [sid]: { ...s, [field]: val } } });
+            };
+
+            return (
+                <div className="max-w-6xl mx-auto p-4 animate-fade-in">
+                    <div className="flex justify-between mb-6"><h1 className="text-2xl font-bold">配置シミュレーション</h1><div><button onClick={()=>setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth()-1))} className="p-2"><Icon name="chevron-left"/></button><span className="mx-2 font-bold">{currentDate.getFullYear()}年{currentDate.getMonth()+1}月</span><button onClick={()=>setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth()+1))} className="p-2"><Icon name="chevron-right"/></button></div></div>
+                    <div className="bg-white rounded border grid grid-cols-7 text-center">
+                        {['日','月','火','水','木','金','土'].map(d=><div key={d} className="p-2 font-bold bg-slate-50 border-b">{d}</div>)}
+                        {getCalendarDays().map((d,i) => (
+                            <div key={i} className={`h-24 border-b border-r p-1 ${d?'cursor-pointer hover:bg-slate-50':''}`} onClick={()=>d&&handleDateClick(d)}>
+                                {d && <span className="text-sm font-bold">{d.getDate()}</span>}
+                            </div>
+                        ))}
+                    </div>
+                    {isModalOpen && selectedDate && (
+                        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+                                <div className="p-4 border-b flex justify-between"><h3 className="font-bold text-lg">{selectedDate.toLocaleDateString()} 詳細</h3><button onClick={()=>setIsModalOpen(false)}><Icon name="x"/></button></div>
+                                <div className="p-6 overflow-y-auto flex-1 grid grid-cols-2 gap-6">
+                                    <div className="space-y-4">
+                                        <div className="bg-slate-50 p-4 rounded border">
+                                            <h4 className="font-bold mb-2">配置状況</h4>
+                                            <div className="flex justify-between"><span>利用者数</span><span className="font-bold text-xl">{activeUsers}名</span></div>
+                                            <div className="flex justify-between"><span>職員数(常勤換算)</span><span className="font-bold text-xl">{fte.toFixed(1)}</span></div>
+                                            <div className="flex justify-between border-t pt-2 mt-2"><span>比率 (利用者:職員)</span><span className={`font-bold ${activeUsers/fte > 10 ? 'text-red-600':'text-green-600'}`}>{ratio} : 1</span></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold mb-2">職員シフト</h4>
+                                        <div className="space-y-2">
+                                            {staffs.map(s => {
+                                                const shift = (staffShifts[dateKey] && staffShifts[dateKey][s.id]) || { checked: false, time: "09:00-18:00" };
+                                                return (
+                                                    <div key={s.id} className="flex items-center justify-between p-2 border rounded">
+                                                        <div className="flex items-center gap-2"><input type="checkbox" checked={shift.checked} onChange={e=>handleShiftChange(s.id, 'checked', e.target.checked)} /><span>{s.name}</span></div>
+                                                        {shift.checked && <input className="border rounded px-1 w-28 text-center" value={shift.time} onChange={e=>handleShiftChange(s.id, 'time', e.target.value)} />}
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // --- 職員管理 ---
+        const StaffManagement = ({ staffs, setStaffs }) => {
+            const [form, setForm] = useState({ name: '', role: '' });
+            const add = () => { if(form.name) { setStaffs([...staffs, { id: Date.now(), ...form }]); setForm({name:'', role:''}); } };
+            return (
+                <div className="max-w-4xl mx-auto p-4 animate-fade-in">
+                    <h1 className="text-2xl font-bold mb-6">職員管理</h1>
+                    <Card title="新規登録">
+                        <div className="flex gap-4 items-end">
+                            <div className="flex-1"><label className="block text-sm mb-1">氏名</label><TextInput value={form.name} onChange={e=>setForm({...form, name:e.target.value})} /></div>
+                            <div className="flex-1"><label className="block text-sm mb-1">役職</label><StaffSelect value={form.role} onChange={e=>setForm({...form, role:e.target.value})} options={["管理者","サビ管","支援員"].map(r=>({id:r,name:r}))} /></div>
+                            <button onClick={add} className="bg-blue-600 text-white px-4 py-2 rounded">追加</button>
+                        </div>
+                    </Card>
+                    <div className="bg-white rounded border overflow-hidden">
+                        <table className="w-full text-left"><thead className="bg-slate-50"><tr><th className="p-3">氏名</th><th className="p-3">役職</th><th className="p-3 text-right">操作</th></tr></thead><tbody>
+                            {staffs.map(s => (<tr key={s.id} className="border-t"><td className="p-3">{s.name}</td><td className="p-3">{s.role}</td><td className="p-3 text-right"><button onClick={()=>setStaffs(staffs.filter(x=>x.id!==s.id))} className="text-red-500"><Icon name="trash-2" size={16}/></button></td></tr>))}
+                        </tbody></table>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 利用者シフト管理 ---
+        const UserShiftManagement = ({ users }) => {
+            const [currentDate, setCurrentDate] = useState(new Date());
+            const [shifts, setShifts] = useState({});
+            const [selectedDate, setSelectedDate] = useState(null);
+            const [isModalOpen, setIsModalOpen] = useState(false);
+
+            useEffect(() => { const s = localStorage.getItem("knowbe_shifts"); if(s) setShifts(JSON.parse(s)); }, []);
+            useEffect(() => { localStorage.setItem("knowbe_shifts", JSON.stringify(shifts)); }, [shifts]);
+
+            const getDays = () => {
+                const year = currentDate.getFullYear(); const month = currentDate.getMonth();
+                const days = []; const first = new Date(year, month, 1).getDay(); const last = new Date(year, month+1, 0).getDate();
+                for(let i=0; i<first; i++) days.push(null);
+                for(let i=1; i<=last; i++) days.push(new Date(year, month, i));
+                return days;
+            };
+
+            const handleDateClick = (d) => { setSelectedDate(d); setIsModalOpen(true); };
+            const handleShift = (uid, field, val) => {
+                const k = formatDateKey(selectedDate);
+                const cur = shifts[k] || {};
+                const s = cur[uid] || { checked: false, time: "10:00-15:00" };
+                setShifts({ ...shifts, [k]: { ...cur, [uid]: { ...s, [field]: val } } });
+            };
+
+            return (
+                <div className="max-w-6xl mx-auto p-4 animate-fade-in">
+                    <div className="flex justify-between mb-6"><h1 className="text-2xl font-bold">利用者シフト</h1><div><button onClick={()=>setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth()-1))} className="p-2"><Icon name="chevron-left"/></button><span className="mx-2 font-bold">{currentDate.getFullYear()}年{currentDate.getMonth()+1}月</span><button onClick={()=>setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth()+1))} className="p-2"><Icon name="chevron-right"/></button></div></div>
+                    <div className="bg-white rounded border grid grid-cols-7 text-center">
+                        {['日','月','火','水','木','金','土'].map(d=><div key={d} className="p-2 font-bold bg-slate-50 border-b">{d}</div>)}
+                        {getDays().map((d,i) => (<div key={i} className={`h-24 border-b border-r p-1 ${d?'hover:bg-slate-50 cursor-pointer':''}`} onClick={()=>d&&handleDateClick(d)}>{d && <span className="text-sm font-bold">{d.getDate()}</span>}</div>))}
+                    </div>
+                    {isModalOpen && selectedDate && (
+                        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+                                <div className="p-4 border-b flex justify-between"><h3 className="font-bold">{selectedDate.toLocaleDateString()} シフト</h3><button onClick={()=>setIsModalOpen(false)}><Icon name="x"/></button></div>
+                                <div className="p-4 overflow-y-auto flex-1 space-y-2">
+                                    {users.map(u => {
+                                        const k = formatDateKey(selectedDate);
+                                        const s = (shifts[k] && shifts[k][u.id]) || { checked: false, time: "10:00-15:00" };
+                                        return (
+                                            <div key={u.id} className="flex items-center justify-between p-2 border rounded">
+                                                <div className="flex items-center gap-2"><input type="checkbox" checked={s.checked} onChange={e=>handleShift(u.id, 'checked', e.target.checked)} /><span>{u.name}</span></div>
+                                                {s.checked && <input className="border rounded px-1" value={s.time} onChange={e=>handleShift(u.id, 'time', e.target.value)} />}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // --- アプリケーション本体 ---
         const App = () => {
             const [view, setView] = useState("list");
             const [users, setUsers] = useState([]);
             const [staffs, setStaffs] = useState([]);
-            const [userShifts, setUserShifts] = useState({}); 
-            const [staffShifts, setStaffShifts] = useState({}); 
+            const [userShifts, setUserShifts] = useState({});
+            const [staffShifts, setStaffShifts] = useState({});
             const [activeUser, setActiveUser] = useState(null);
             const [activeForm, setActiveForm] = useState("summary");
             const [deleteTarget, setDeleteTarget] = useState(null);
 
             useEffect(() => {
-                const savedUsers = localStorage.getItem("knowbe_users");
-                if (savedUsers) {
-                    try {
-                        const parsed = JSON.parse(savedUsers);
-                        const migrated = Array.isArray(parsed) ? parsed.map(u => ({
-                            ...getInitialUserState(), 
-                            ...u, 
-                            plan: { ...getInitialUserState().plan, ...(u.plan || {}) },
-                            monitoring: { ...getInitialUserState().monitoring, ...(u.monitoring || {}) },
-                            termination: u.termination || getInitialUserState().termination,
-                            application: { ...getInitialUserState().application, ...(u.application || {}), applicantName: u.application?.applicantName || u.name || "" }
-                        })) : [];
-                        setUsers(migrated);
-                    } catch(e) { console.error("Data load error", e); }
-                } else {
-                    const initialApp = { ...getInitialUserState().application, applicantName: "飯嶋 卓也", applicantNameKana: "イイジマ タクヤ", interviewer: "小野 美和子", dob: "1986-12-23" };
-                    let dummy = { ...getInitialUserState(), id: Date.now(), name: "飯嶋 卓也", application: initialApp };
-                    dummy.status = determineStatus(dummy);
-                    setUsers([dummy]);
-                }
-                const savedStaffs = localStorage.getItem("knowbe_staffs");
-                if (savedStaffs) { try { setStaffs(JSON.parse(savedStaffs)); } catch(e) {} } else {
-                    setStaffs([{ id: 1, name: "小野 美和子", role: "管理者", type: "full" }, { id: 2, name: "山田 太郎", role: "サービス管理責任者", type: "full" }]);
-                }
-                const savedUserShifts = localStorage.getItem("knowbe_shifts");
-                if (savedUserShifts) { try { setUserShifts(JSON.parse(savedUserShifts)); } catch(e) {} }
-                const savedStaffShifts = localStorage.getItem("knowbe_staff_shifts");
-                if (savedStaffShifts) { try { setStaffShifts(JSON.parse(savedStaffShifts)); } catch(e) {} }
+                // 初期データ読み込み
+                const su = localStorage.getItem("knowbe_users");
+                if (su) try { setUsers(JSON.parse(su).map(u => ({ ...getInitialUserState(), ...u, status: determineStatus(u) }))); } catch(e) {} else setUsers([getInitialUserState()]);
+                const ss = localStorage.getItem("knowbe_staffs");
+                if (ss) try { setStaffs(JSON.parse(ss)); } catch(e) {} else setStaffs([{id:1, name:"管理者", role:"管理者"}]);
+                const sus = localStorage.getItem("knowbe_shifts"); if(sus) setUserShifts(JSON.parse(sus));
+                const sss = localStorage.getItem("knowbe_staff_shifts"); if(sss) setStaffShifts(JSON.parse(sss));
             }, []);
 
             useEffect(() => { localStorage.setItem("knowbe_users", JSON.stringify(users)); }, [users]);
@@ -587,84 +669,88 @@
             useEffect(() => { localStorage.setItem("knowbe_shifts", JSON.stringify(userShifts)); }, [userShifts]);
             useEffect(() => { localStorage.setItem("knowbe_staff_shifts", JSON.stringify(staffShifts)); }, [staffShifts]);
 
-            const handleCreateUser = () => { 
-                const newUserRaw = { ...getInitialUserState(), id: Date.now(), name: "新規利用者" }; 
-                const newUser = { ...newUserRaw, status: determineStatus(newUserRaw) };
-                setUsers([...users, newUser]); 
-                setActiveUser(newUser.id); 
-                setView("detail"); 
-            };
-            const handleUpdateUser = (updatedData) => {
-                const name = updatedData.application.applicantName || updatedData.name || "名称未設定";
-                const status = determineStatus(updatedData);
-                const finalData = { ...updatedData, name, status };
+            const handleCreateUser = () => { const u = { ...getInitialUserState(), id: Date.now() }; setUsers([...users, u]); setActiveUser(u.id); setView("detail"); };
+            const handleUpdateUser = (d) => {
+                const status = determineStatus(d);
+                const newData = { ...d, status, name: d.application.applicantName || "名称未設定" };
                 
+                // 仮申込の体験日時をシフトに反映
                 const newShifts = { ...userShifts };
-                const schedule = finalData.application.schedule;
-                const updateShift = (dateStr, timeStr) => {
-                    if (dateStr && timeStr) {
-                        const date = new Date(dateStr);
-                        const dateKey = formatDateKey(date);
-                        if (!newShifts[dateKey]) newShifts[dateKey] = {};
-                        newShifts[dateKey][finalData.id] = { time: timeStr.replace('～', '-'), checked: true };
+                const sched = newData.application.schedule;
+                [ ['trial1', 'trial1Time'], ['trial2', 'trial2Time'], ['trial3', 'trial3Time'] ].forEach(([dKey, tKey]) => {
+                    if (sched[dKey] && sched[tKey]) {
+                        const k = formatDateKey(new Date(sched[dKey]));
+                        if (!newShifts[k]) newShifts[k] = {};
+                        newShifts[k][newData.id] = { checked: true, time: sched[tKey].replace('～', '-') };
                     }
-                };
-                updateShift(schedule.trial1, schedule.trial1Time);
-                updateShift(schedule.trial2, schedule.trial2Time);
-                updateShift(schedule.trial3, schedule.trial3Time);
+                });
                 setUserShifts(newShifts);
-                localStorage.setItem("knowbe_shifts", JSON.stringify(newShifts));
-
-                setUsers(users.map(u => u.id === finalData.id ? finalData : u));
-                setActiveUser(finalData.id); 
+                setUsers(users.map(u => u.id === newData.id ? newData : u));
+                setActiveUser(newData.id);
             };
-            const handleDeleteClick = (user) => setDeleteTarget(user);
-            const executeDelete = () => { if(deleteTarget){ setUsers(users.filter(u=>u.id!==deleteTarget.id)); setDeleteTarget(null); setView("list"); }};
-            const currentUser = useMemo(() => users.find(u => u.id === activeUser), [users, activeUser]);
-            
-            const handleStaffShiftUpdate = (date, staffId, timeValue) => {
-                const dateKey = formatDateKey(date);
-                const currentDay = staffShifts[dateKey] || {};
-                const newShift = { 
-                    time: timeValue, 
-                    checked: !!timeValue 
+
+            const handleStaffShiftUpdate = (date, sid, val) => {
+                const k = formatDateKey(date);
+                const cur = staffShifts[k] || {};
+                setStaffShifts({ ...staffShifts, [k]: { ...cur, [sid]: { checked: !!val, time: val } } });
+            };
+
+            const currentUser = users.find(u => u.id === activeUser);
+
+            // JSONエクスポート
+            const exportData = () => {
+                const data = { users, staffs, userShifts, staffShifts };
+                const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = 'gift_support_data.json'; a.click();
+            };
+            const importData = (e) => {
+                const f = e.target.files[0]; if(!f) return;
+                const r = new FileReader();
+                r.onload = (ev) => {
+                    try {
+                        const d = JSON.parse(ev.target.result);
+                        if(confirm('データを上書きしますか？')) {
+                            if(d.users) setUsers(d.users); if(d.staffs) setStaffs(d.staffs);
+                            if(d.userShifts) setUserShifts(d.userShifts); if(d.staffShifts) setStaffShifts(d.staffShifts);
+                        }
+                    } catch(err) { alert('読み込みエラー'); }
                 };
-                const newShifts = { ...staffShifts, [dateKey]: { ...currentDay, [staffId]: newShift } };
-                setStaffShifts(newShifts);
+                r.readAsText(f);
             };
-
-            const exportData = () => { const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(users)); a.download = "data.json"; a.click(); };
-            const importData = (e) => { const r = new FileReader(); r.onload = (ev) => { if(confirm('上書きしますか？')) setUsers(JSON.parse(ev.target.result)); }; if(e.target.files[0]) r.readAsText(e.target.files[0]); };
 
             return (
                 <ErrorBoundary>
                 <div className="flex min-h-screen">
+                    {/* サイドバー */}
                     <div className="w-64 bg-slate-800 text-white flex-shrink-0 flex flex-col no-print">
                         <div className="p-6 text-xl font-bold border-b border-slate-700 flex items-center gap-2"><div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center">G</div>Gift Support</div>
                         <nav className="flex-1 p-4 space-y-1">
-                            <button onClick={() => setView("list")} className={`flex items-center space-x-3 w-full p-3 rounded transition ${view === "list" ? "bg-slate-700" : "hover:bg-slate-700"}`}><Icon name="users" /><span>利用者一覧</span></button>
-                            <button onClick={() => setView("schedule")} className={`flex items-center space-x-3 w-full p-3 rounded transition ${view === "schedule" ? "bg-slate-700" : "hover:bg-slate-700"}`}><Icon name="calendar-days" /><span>スケジュール</span></button>
-                            <button onClick={() => setView("user_shift")} className={`flex items-center space-x-3 w-full p-3 rounded transition ${view === "user_shift" ? "bg-slate-700" : "hover:bg-slate-700"}`}><Icon name="calendar" /><span>利用者シフト</span></button>
-                            <button onClick={() => setView("staff_shift")} className={`flex items-center space-x-3 w-full p-3 rounded transition ${view === "staff_shift" ? "bg-slate-700" : "hover:bg-slate-700"}`}><Icon name="calendar-check" /><span>職員配置シミュ</span></button>
-                            <button onClick={() => setView("staff_shift_monthly")} className={`flex items-center space-x-3 w-full p-3 rounded transition ${view === "staff_shift_monthly" ? "bg-slate-700" : "hover:bg-slate-700"}`}><Icon name="table" /><span>職員シフト表(月)</span></button>
-                            <button onClick={() => setView("staff_list")} className={`flex items-center space-x-3 w-full p-3 rounded transition ${view === "staff_list" ? "bg-slate-700" : "hover:bg-slate-700"}`}><Icon name="user-cog" /><span>職員情報</span></button>
-                            <div className="pt-4 pb-2 px-3 text-xs text-slate-500 uppercase font-bold">データ管理</div>
-                            <button onClick={exportData} className="flex items-center space-x-3 w-full p-3 rounded hover:bg-slate-700"><Icon name="download" /><span>保存</span></button>
-                            <label className="flex items-center space-x-3 w-full p-3 rounded hover:bg-slate-700 cursor-pointer"><Icon name="upload" /><span>読込</span><input type="file" className="hidden" onChange={importData} /></label>
+                            <button onClick={()=>setView("list")} className={`flex items-center space-x-3 w-full p-3 rounded transition ${view==="list"?"bg-slate-700":"hover:bg-slate-700"}`}><Icon name="users"/><span>利用者一覧</span></button>
+                            <button onClick={()=>setView("schedule")} className={`flex items-center space-x-3 w-full p-3 rounded transition ${view==="schedule"?"bg-slate-700":"hover:bg-slate-700"}`}><Icon name="calendar-days"/><span>スケジュール</span></button>
+                            <button onClick={()=>setView("user_shift")} className={`flex items-center space-x-3 w-full p-3 rounded transition ${view==="user_shift"?"bg-slate-700":"hover:bg-slate-700"}`}><Icon name="calendar"/><span>利用者シフト</span></button>
+                            <button onClick={()=>setView("staff_shift")} className={`flex items-center space-x-3 w-full p-3 rounded transition ${view==="staff_shift"?"bg-slate-700":"hover:bg-slate-700"}`}><Icon name="calendar-check"/><span>職員配置シミュ</span></button>
+                            <button onClick={()=>setView("staff_shift_monthly")} className={`flex items-center space-x-3 w-full p-3 rounded transition ${view==="staff_shift_monthly"?"bg-slate-700":"hover:bg-slate-700"}`}><Icon name="table"/><span>職員シフト表(月)</span></button>
+                            <button onClick={()=>setView("staff_list")} className={`flex items-center space-x-3 w-full p-3 rounded transition ${view==="staff_list"?"bg-slate-700":"hover:bg-slate-700"}`}><Icon name="user-cog"/><span>職員情報</span></button>
+                            <div className="pt-4 pb-2 px-3 text-xs text-slate-500 font-bold">データ管理</div>
+                            <button onClick={exportData} className="flex items-center space-x-3 w-full p-3 rounded hover:bg-slate-700"><Icon name="download"/><span>保存</span></button>
+                            <label className="flex items-center space-x-3 w-full p-3 rounded hover:bg-slate-700 cursor-pointer"><Icon name="upload"/><span>読込</span><input type="file" className="hidden" onChange={importData}/></label>
                         </nav>
                     </div>
+
+                    {/* メインエリア */}
                     <div className="flex-1 flex flex-col">
-                        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-sm no-print">
-                            <div className="text-sm font-medium text-slate-600">ホーム {view === 'staff_shift' && '> 職員配置シミュレーション'} {view === 'staff_shift_monthly' && '> 職員シフト表(月)'}</div>
+                        <header className="h-16 bg-white border-b flex items-center justify-between px-8 shadow-sm no-print">
+                            <div className="text-sm font-medium text-slate-600">ホーム</div>
                             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">A</div>
                         </header>
-                        <main className="flex-1 p-8 overflow-y-auto">
+                        <main className="flex-1 p-8 overflow-y-auto bg-slate-50">
                             {view === "list" && (
-                                <div className="max-w-6xl mx-auto">
-                                    <div className="flex justify-between mb-6"><h1 className="text-2xl font-bold">利用者一覧</h1><button onClick={handleCreateUser} className="bg-blue-600 text-white px-4 py-2 rounded flex gap-2"><Icon name="plus" />新規登録</button></div>
+                                <div className="max-w-6xl mx-auto animate-fade-in">
+                                    <div className="flex justify-between mb-6"><h1 className="text-2xl font-bold">利用者一覧</h1><button onClick={handleCreateUser} className="bg-blue-600 text-white px-4 py-2 rounded flex gap-2"><Icon name="plus"/>新規登録</button></div>
                                     <div className="bg-white rounded shadow overflow-hidden">
-                                        <table className="min-w-full divide-y divide-slate-200"><thead className="bg-slate-50"><tr><th className="px-6 py-3 text-left">氏名</th><th className="px-6 py-3 text-left">状態</th><th className="px-6 py-3 text-right">操作</th></tr></thead>
-                                        <tbody className="divide-y divide-slate-200">{users.map(u => (<tr key={u.id}><td className="px-6 py-4">{u.name}</td><td className="px-6 py-4">{u.status}</td><td className="px-6 py-4 text-right"><button onClick={() => {setActiveUser(u.id); setView("detail");}} className="text-blue-600 mr-4">編集</button><button onClick={() => handleDeleteClick(u)} className="text-red-500"><Icon name="trash-2" size={16} /></button></td></tr>))}</tbody></table>
+                                        <table className="w-full text-left"><thead className="bg-slate-50"><tr><th className="p-4">氏名</th><th className="p-4">状態</th><th className="p-4 text-right">操作</th></tr></thead>
+                                        <tbody>{users.map(u=><tr key={u.id} className="border-t"><td className="p-4">{u.name}</td><td className="p-4"><span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">{u.status}</span></td><td className="p-4 text-right"><button onClick={()=>{setActiveUser(u.id);setView("detail")}} className="text-blue-600 mr-4">編集</button><button onClick={()=>setDeleteTarget(u)} className="text-red-500"><Icon name="trash-2" size={16}/></button></td></tr>)}</tbody></table>
                                     </div>
                                 </div>
                             )}
@@ -674,24 +760,32 @@
                             {view === "staff_shift_monthly" && <StaffMonthlyShift staffs={staffs} staffShifts={staffShifts} onShiftChange={handleStaffShiftUpdate} />}
                             {view === "staff_list" && <StaffManagement staffs={staffs} setStaffs={setStaffs} />}
                             {view === "detail" && currentUser && (
-                                <div className="max-w-5xl mx-auto">
-                                    <div className="mb-6 flex justify-between">
-                                        <h1 className="text-2xl font-bold">{currentUser.name}</h1>
-                                        <button onClick={() => window.print()} className="px-4 py-2 border rounded bg-white"><Icon name="printer" /> 印刷</button>
-                                    </div>
-                                    <div className="border-b mb-6"><nav className="flex space-x-8">{['要約情報','仮申込書','アセスメント','個別支援計画','モニタリング','終了評価'].map((label, idx) => { const ids = ['summary','application','assessment','plan','monitoring','termination']; return (<button key={ids[idx]} onClick={() => setActiveForm(ids[idx])} className={`py-4 border-b-2 ${activeForm===ids[idx] ? 'border-blue-500 text-blue-600' : 'border-transparent'}`}>{label}</button>); })}</nav></div>
+                                <div className="max-w-5xl mx-auto animate-fade-in">
+                                    <div className="flex justify-between mb-6"><h1 className="text-2xl font-bold">{currentUser.name}</h1><button onClick={()=>window.print()} className="px-4 py-2 border rounded bg-white"><Icon name="printer"/> 印刷</button></div>
+                                    <div className="border-b mb-6 flex gap-4 overflow-x-auto">{['要約情報','仮申込書','アセスメント','個別支援計画','モニタリング','終了評価'].map((l,i)=><button key={i} onClick={()=>setActiveForm(['summary','application','assessment','plan','monitoring','termination'][i])} className={`py-2 border-b-2 ${activeForm===['summary','application','assessment','plan','monitoring','termination'][i]?'border-blue-500 text-blue-600':'border-transparent'}`}>{l}</button>)}</div>
                                     {activeForm === 'summary' && <SummaryView user={currentUser} />}
-                                    {activeForm === 'application' && <ApplicationForm data={currentUser.application} onChange={d => handleUpdateUser({...currentUser, application: d})} staffList={staffs} />}
-                                    {activeForm === 'assessment' && <AssessmentForm data={currentUser.assessment} onChange={d => handleUpdateUser({...currentUser, assessment: d})} applicationData={currentUser.application} staffList={staffs} />}
-                                    {activeForm === 'plan' && <PlanForm data={currentUser.plan} onChange={d => handleUpdateUser({...currentUser, plan: d})} applicationData={currentUser.application} staffList={staffs} />}
-                                    {activeForm === 'monitoring' && <MonitoringForm data={currentUser.monitoring} onChange={d => handleUpdateUser({...currentUser, monitoring: d})} applicationData={currentUser.application} planData={currentUser.plan} staffList={staffs} />}
-                                    {activeForm === 'termination' && <TerminationForm data={currentUser.termination} onChange={d => handleUpdateUser({...currentUser, termination: d})} applicationData={currentUser.application} planData={currentUser.plan} />}
+                                    {activeForm === 'application' && <ApplicationForm data={currentUser.application} onChange={d=>handleUpdateUser({...currentUser, application:d})} staffList={staffs} />}
+                                    {activeForm === 'assessment' && <AssessmentForm data={currentUser.assessment} onChange={d=>handleUpdateUser({...currentUser, assessment:d})} applicationData={currentUser.application} staffList={staffs} />}
+                                    {activeForm === 'plan' && <PlanForm data={currentUser.plan} onChange={d=>handleUpdateUser({...currentUser, plan:d})} applicationData={currentUser.application} staffList={staffs} />}
+                                    {activeForm === 'monitoring' && <MonitoringForm data={currentUser.monitoring} onChange={d=>handleUpdateUser({...currentUser, monitoring:d})} applicationData={currentUser.application} planData={currentUser.plan} staffList={staffs} />}
+                                    {activeForm === 'termination' && <TerminationForm data={currentUser.termination} onChange={d=>handleUpdateUser({...currentUser, termination:d})} applicationData={currentUser.application} planData={currentUser.plan} />}
                                 </div>
                             )}
                         </main>
                     </div>
+
+                    {/* 削除モーダル */}
                     {deleteTarget && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"><div className="bg-white p-6 rounded shadow-xl"><p>削除しますか？</p><div className="flex justify-end gap-2 mt-4"><button onClick={() => setDeleteTarget(null)} className="px-4 py-2 border rounded">キャンセル</button><button onClick={executeDelete} className="px-4 py-2 bg-red-600 text-white rounded">削除</button></div></div></div>
+                        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                            <div className="bg-white p-6 rounded shadow-xl max-w-sm w-full">
+                                <h3 className="text-lg font-bold mb-2">削除確認</h3>
+                                <p className="mb-4 text-slate-600">「{deleteTarget.name}」を削除しますか？</p>
+                                <div className="flex justify-end gap-2">
+                                    <button onClick={()=>setDeleteTarget(null)} className="px-4 py-2 border rounded">キャンセル</button>
+                                    <button onClick={()=>{setUsers(users.filter(u=>u.id!==deleteTarget.id)); setDeleteTarget(null); setView("list");}} className="px-4 py-2 bg-red-600 text-white rounded">削除</button>
+                                </div>
+                            </div>
+                        </div>
                     )}
                 </div>
                 </ErrorBoundary>
