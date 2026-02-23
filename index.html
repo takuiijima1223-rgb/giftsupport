@@ -494,12 +494,12 @@
                     </div>
 
                     <div className="bg-white border border-slate-200 rounded-lg overflow-x-auto shadow-sm w-full print:border-none print:shadow-none">
-                        <table className="divide-y divide-slate-200 border-collapse table-fixed w-full" style={{ minWidth: '1200px' }}>
+                        <table className="divide-y divide-slate-200 border-collapse table-fixed w-full" style={{ minWidth: '1600px' }}>
                             <thead className="bg-slate-50">
                                 <tr>
-                                    <th className="p-1 text-left font-bold text-slate-500 sticky left-0 bg-slate-50 z-10 w-[90px] border-r border-b text-[10px] leading-tight">職員名</th>
+                                    <th className="p-1 text-left font-bold text-slate-500 sticky left-0 bg-slate-50 z-10 w-[100px] border-r border-b text-[11px] leading-tight">職員名</th>
                                     {days.map(d => (
-                                        <th key={d.getDate()} className={`p-0 text-center font-bold w-[36px] border-r border-b text-[10px] leading-tight ${d.getDay()===0?'text-red-500 bg-red-50':d.getDay()===6?'text-blue-500 bg-blue-50':'text-slate-500'}`}>
+                                        <th key={d.getDate()} className={`p-0 text-center font-bold w-[45px] border-r border-b text-[11px] leading-tight ${d.getDay()===0?'text-red-500 bg-red-50':d.getDay()===6?'text-blue-500 bg-blue-50':'text-slate-500'}`}>
                                             {d.getDate()}<br/>{weekDays[d.getDay()]}
                                         </th>
                                     ))}
@@ -508,7 +508,7 @@
                             <tbody className="bg-white divide-y divide-slate-200">
                                 {staffs.map(staff => (
                                     <tr key={staff.id} className="h-6">
-                                        <td className="p-1 font-medium text-slate-900 sticky left-0 bg-white z-10 border-r border-b text-[9px] truncate max-w-[90px]" title={`${staff.name} (${staff.role})`}>
+                                        <td className="p-1 font-medium text-slate-900 sticky left-0 bg-white z-10 border-r border-b text-[10px] truncate max-w-[100px]" title={`${staff.name} (${staff.role})`}>
                                             {staff.name}
                                         </td>
                                         {days.map(date => {
@@ -521,8 +521,8 @@
                                             return (
                                                 <td key={date.toISOString()} className={`p-0 border-r border-b relative group`}>
                                                     <select
-                                                        className={`w-full h-full text-center appearance-none focus:outline-none cursor-pointer font-bold text-[9px] px-0 py-0 ${getShiftColor(currentTime)}`}
-                                                        style={{ textOverflow: 'clip', letterSpacing: '-0.5px' }}
+                                                        className={`w-full h-full text-center appearance-none focus:outline-none cursor-pointer font-bold text-[10px] px-0 py-1 ${getShiftColor(currentTime)}`}
+                                                        style={{ textOverflow: 'clip' }}
                                                         value={currentTime}
                                                         onChange={(e) => handleChange(date, staff.id, e.target.value)}
                                                         title={currentTime || '休'}
@@ -544,8 +544,8 @@
                             </tbody>
                             <tfoot className="bg-slate-100 font-bold text-slate-600">
                                 <tr className="h-6">
-                                    <td className="p-1 sticky left-0 bg-slate-100 z-10 border-r border-t text-[9px]">稼働(h)</td>
-                                    {days.map(date => { const total = calculateDailyTotal(date); return (<td key={date.toISOString()} className="text-center p-0 border-r border-t text-[10px]">{total > 0 ? total : '-'}</td>); })}
+                                    <td className="p-1 sticky left-0 bg-slate-100 z-10 border-r border-t text-[10px]">稼働(h)</td>
+                                    {days.map(date => { const total = calculateDailyTotal(date); return (<td key={date.toISOString()} className="text-center p-0 border-r border-t text-[11px]">{total > 0 ? total : '-'}</td>); })}
                                 </tr>
                             </tfoot>
                         </table>
