@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -41,6 +41,7 @@
             .shadow-sm, .shadow-md, .shadow-lg { box-shadow: none !important; }
             input, textarea, select { border: 1px solid #ccc !important; }
             input:disabled, textarea:disabled { background-color: white !important; color: black !important; }
+            /* 印刷時Selectの矢印を消す */
             select { -webkit-appearance: none; -moz-appearance: none; appearance: none; background: none !important; padding-right: 0 !important; }
             .overflow-x-auto { overflow: visible !important; }
             .min-w-full { min-width: 100% !important; }
@@ -389,168 +390,6 @@
             );
         };
 
-        // --- 日々の記録機能 (New!) ---
-        const DailyRecordForm = ({ data, assessmentData, onChange }) => {
-            const [form, setForm] = useState({
-                date: formatDateKey(new Date()),
-                condition: '普通',
-                temperature: '',
-                wakeTime: '',
-                sleepTime: '',
-                content: ''
-            });
-            const [isGenerating, setIsGenerating] = useState(false);
-
-            // Gemini APIを使用した文章生成
-            const handleGenerateAI = async () => {
-                setIsGenerating(true);
-                const apiKey = ""; // APIキーは実行環境から提供される前提
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-                
-                const userQuery = `以下の情報を元に、本日の就労支援の「支援記録（職員が書く日報）」を150文字〜200文字程度で作成してください。客観的で丁寧な文体にしてください。
-        【本日の状況】
-        体調: ${form.condition}
-        体温: ${form.temperature ? form.temperature + '℃' : '未計測'}
-        起床: ${form.wakeTime || '不明'} / 就寝: ${form.sleepTime || '不明'}
-        【利用者の特性（アセスメント情報）】
-        得意なこと: ${assessmentData?.dailyLife?.strengths || '情報なし'}
-        苦手なこと: ${assessmentData?.dailyLife?.challenges || '情報なし'}
-        配慮事項: ${assessmentData?.triggers || '情報なし'}
-        `;
-                const payload = {
-                    contents: [{ parts: [{ text: userQuery }] }],
-                    systemInstruction: { parts: [{ text: "あなたは就労支援施設の経験豊富な支援員です。" }] }
-                };
-
-                let retries = 5;
-                let delay = 1000;
-                let generatedText = "";
-                
-                while (retries > 0) {
-                    try {
-                        const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-                        const result = await response.json();
-                        if (result.error) throw new Error(result.error.message);
-                        generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                        break;
-                    } catch (e) {
-                        retries--;
-                        if (retries === 0) {
-                            alert("AIの生成に失敗しました。\nAPIキーが設定されているか、または時間をおいて再度お試しください。");
-                        } else {
-                            await new Promise(r => setTimeout(r, delay));
-                            delay *= 2;
-                        }
-                    }
-                }
-                
-                if(generatedText) setForm({...form, content: generatedText.trim()});
-                setIsGenerating(false);
-            };
-
-            const addRecord = () => {
-                if(!form.date) return;
-                onChange([...data, { id: Date.now(), ...form }]);
-                setForm({...form, content: ''}); 
-            };
-
-            return (
-                <div className="space-y-6 animate-fade-in">
-                    <Card title="新規支援記録の登録">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                            <InputGroup label="日付"><TextInput type="date" value={form.date} onChange={e=>setForm({...form, date:e.target.value})} /></InputGroup>
-                            <InputGroup label="体調">
-                                <div className="relative">
-                                    <select className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white border-slate-300 appearance-none" value={form.condition} onChange={e=>setForm({...form, condition:e.target.value})}>
-                                        {['良好', '普通', '変化なし', 'やや不調', '不調'].map(c=><option key={c} value={c}>{c}</option>)}
-                                    </select>
-                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500"><Icon name="chevron-down" size={16} /></div>
-                                </div>
-                            </InputGroup>
-                            <InputGroup label="体温 (℃)"><TextInput type="number" step="0.1" value={form.temperature} onChange={e=>setForm({...form, temperature:e.target.value})} placeholder="例: 36.5" /></InputGroup>
-                            <InputGroup label="起床 / 就寝時間">
-                                <div className="flex gap-2">
-                                    <TextInput type="time" value={form.wakeTime} onChange={e=>setForm({...form, wakeTime:e.target.value})} title="起床時間" />
-                                    <TextInput type="time" value={form.sleepTime} onChange={e=>setForm({...form, sleepTime:e.target.value})} title="就寝時間" />
-                                </div>
-                            </InputGroup>
-                        </div>
-                        <InputGroup label="支援内容・様子">
-                            <div className="mb-2">
-                                <button onClick={handleGenerateAI} disabled={isGenerating} className="bg-purple-600 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1 hover:bg-purple-700 disabled:opacity-50 transition-colors shadow-sm">
-                                    <Icon name="wand-2" size={14} />
-                                    {isGenerating ? "AIが文章を生成中..." : "AIで支援内容を自動作成"}
-                                </button>
-                            </div>
-                            <TextArea rows={4} value={form.content} onChange={e=>setForm({...form, content:e.target.value})} placeholder="本日の様子や支援内容を入力してください。（AIで自動作成も可能です）" />
-                        </InputGroup>
-                        <div className="flex justify-end"><button onClick={addRecord} className="bg-blue-600 text-white px-6 py-2 rounded shadow-sm hover:bg-blue-700">記録を保存</button></div>
-                    </Card>
-
-                    <Card title="過去の支援記録">
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-slate-200 text-sm border-collapse">
-                                <thead className="bg-slate-50"><tr><th className="p-3 text-left w-24">日付</th><th className="p-3 text-left w-20">体調</th><th className="p-3 text-left w-20">体温</th><th className="p-3 text-left w-24">起床/就寝</th><th className="p-3 text-left">支援内容</th><th className="p-3 text-right w-16">操作</th></tr></thead>
-                                <tbody className="divide-y divide-slate-200">
-                                    {[...data].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(r => (
-                                        <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                                            <td className="p-3 font-bold text-slate-700">{r.date}</td>
-                                            <td className="p-3"><span className={`px-2 py-1 rounded text-xs ${r.condition==='良好'?'bg-green-100 text-green-800':r.condition.includes('不調')?'bg-red-100 text-red-800':'bg-slate-100 text-slate-800'}`}>{r.condition}</span></td>
-                                            <td className="p-3">{r.temperature ? `${r.temperature}℃` : '-'}</td>
-                                            <td className="p-3 text-slate-500 text-xs">{r.wakeTime || '-'}<br/>{r.sleepTime || '-'}</td>
-                                            <td className="p-3 whitespace-pre-wrap text-slate-600">{r.content}</td>
-                                            <td className="p-3 text-right"><button onClick={()=>onChange(data.filter(x=>x.id!==r.id))} className="text-red-500 hover:bg-red-50 p-1 rounded"><Icon name="trash-2" size={16}/></button></td>
-                                        </tr>
-                                    ))}
-                                    {data.length === 0 && <tr><td colSpan="6" className="p-8 text-center text-slate-400">支援記録がありません</td></tr>}
-                                </tbody>
-                            </table>
-                        </div>
-                    </Card>
-                </div>
-            );
-        };
-
-        const InterviewRecordForm = ({ data, staffList, onChange }) => {
-            const [form, setForm] = useState({ date: formatDateKey(new Date()), interviewer: '', content: '' });
-
-            const addRecord = () => {
-                if(!form.date || !form.content) return;
-                onChange([...data, { id: Date.now(), ...form }]);
-                setForm({...form, content: ''});
-            };
-
-            return (
-                <div className="space-y-6 animate-fade-in">
-                    <Card title="新規面談記録">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                            <InputGroup label="面談日"><TextInput type="date" value={form.date} onChange={e=>setForm({...form, date:e.target.value})} /></InputGroup>
-                            <InputGroup label="対応スタッフ"><StaffSelect value={form.interviewer} onChange={e=>setForm({...form, interviewer:e.target.value})} options={staffList} /></InputGroup>
-                        </div>
-                        <InputGroup label="面談内容" required><TextArea rows={4} value={form.content} onChange={e=>setForm({...form, content:e.target.value})} placeholder="面談で話した内容や決定事項を入力してください。" /></InputGroup>
-                        <div className="flex justify-end"><button onClick={addRecord} className="bg-blue-600 text-white px-6 py-2 rounded shadow-sm hover:bg-blue-700">記録を保存</button></div>
-                    </Card>
-
-                    <Card title="過去の面談記録">
-                        <div className="space-y-4">
-                            {[...data].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(r => (
-                                <div key={r.id} className="p-4 border border-slate-200 rounded-lg bg-white relative group hover:border-blue-300 transition-colors">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="flex items-center gap-3">
-                                            <span className="font-bold text-blue-800">{r.date}</span>
-                                            <span className="text-sm bg-blue-50 px-2 py-0.5 rounded text-blue-700 flex items-center gap-1"><Icon name="user" size={12}/> {r.interviewer || '未設定'}</span>
-                                        </div>
-                                        <button onClick={()=>onChange(data.filter(x=>x.id!==r.id))} className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Icon name="trash-2" size={16}/></button>
-                                    </div>
-                                    <div className="text-sm text-slate-700 whitespace-pre-wrap pl-3 border-l-2 border-slate-200 py-1">{r.content}</div>
-                                </div>
-                            ))}
-                            {data.length === 0 && <div className="text-center text-slate-400 p-8 border-2 border-dashed border-slate-200 rounded-lg">面談記録がありません</div>}
-                        </div>
-                    </Card>
-                </div>
-            );
-        };
 
         // --- 要約情報ビュー ---
         const SummaryView = ({ user }) => {
@@ -741,13 +580,22 @@
             );
         };
 
-        // --- 個別申込書・アセスメント等省略なし ---
+        // --- 仮申込書フォーム (UI更新) ---
         const ApplicationForm = ({ data, onChange, staffList }) => {
             const update = (field, value) => onChange({ ...data, [field]: value });
-            const updateSchedule = (field, value) => onChange({ ...data, schedule: { ...data.schedule, [field]: value } });
+            // schedule内の特定のキーを更新するためのラッパー
+            const updateSchedule = (field, value) => onChange({ 
+                ...data, 
+                schedule: { ...data.schedule, [field]: value } 
+            });
             const handleCheckbox = (field, item) => { const current = data[field] || []; if (current.includes(item)) update(field, current.filter(i => i !== item)); else update(field, [...current, item]); };
 
-            const timeOptions = [ "10:00～11:00", "10:00～12:00", "10:00～14:00", "10:00～15:00", "11:00～12:00", "11:00～14:00", "11:00～15:00", "13:00～14:00", "13:00～15:00", "14:00～15:00" ];
+            // シフト時間の選択肢
+            const timeOptions = [
+                "10:00～11:00", "10:00～12:00", "10:00～14:00", "10:00～15:00",
+                "11:00～12:00", "11:00～14:00", "11:00～15:00",
+                "13:00～14:00", "13:00～15:00", "14:00～15:00"
+            ];
 
             return (
                 <div>
@@ -781,6 +629,7 @@
             const tabs = ["基本情報", "就労・生活歴", "日常生活", "就労評価(チェック)", "総合所見"];
             const update = (field, value) => onChange({ ...data, [field]: value });
             const updateNested = (parent, field, value) => onChange({ ...data, [parent]: { ...data[parent], [field]: value } });
+            
             const RatingRow = ({ label, category, field }) => {
                 const val = data.checklist[category][field];
                 const setVal = (newVal) => { onChange({ ...data, checklist: { ...data.checklist, [category]: { ...data.checklist[category], [field]: { ...val, ...newVal } } } }); };
@@ -844,6 +693,167 @@
                     <div className="mb-6"><InputGroup label="実施日"><TextInput type="date" value={data.date} onChange={e => update('date', e.target.value)} className="w-48" /></InputGroup></div>
                     <div className="overflow-x-auto"><table className="min-w-full divide-y divide-slate-200 border border-slate-200 rounded-lg"><thead className="bg-slate-50"><tr><th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase w-10">No.</th><th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase w-48">到達目標</th><th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase w-32">達成状況の評価</th><th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase">全体的評価</th><th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase">満足度などご利用者様意見</th><th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase">次回目標設定への意見など</th></tr></thead><tbody className="bg-white divide-y divide-slate-200">{data.goals.map((row) => (<tr key={row.id}><td className="px-3 py-4 text-center text-sm font-bold text-slate-500">{row.id}</td><td className="px-2 py-2 align-top"><TextArea rows={3} value={row.target} onChange={e => handleRowChange(row.id, 'target', e.target.value)} /></td><td className="px-2 py-2 align-top"><TextArea rows={3} value={row.achievement} onChange={e => handleRowChange(row.id, 'achievement', e.target.value)} placeholder="例：ほぼ達成" /></td><td className="px-2 py-2 align-top"><TextArea rows={3} value={row.overall} onChange={e => handleRowChange(row.id, 'overall', e.target.value)} /></td><td className="px-2 py-2 align-top"><TextArea rows={3} value={row.satisfaction} onChange={e => handleRowChange(row.id, 'satisfaction', e.target.value)} /></td><td className="px-2 py-2 align-top"><TextArea rows={3} value={row.nextOpinion} onChange={e => handleRowChange(row.id, 'nextOpinion', e.target.value)} /></td></tr>))}</tbody></table></div>
                 </Card>
+            );
+        };
+
+        const DailyRecordForm = ({ data, assessmentData, onChange }) => {
+            const [form, setForm] = useState({
+                date: formatDateKey(new Date()),
+                condition: '普通',
+                temperature: '',
+                wakeTime: '',
+                sleepTime: '',
+                content: ''
+            });
+            const [isGenerating, setIsGenerating] = useState(false);
+
+            const handleGenerateAI = async () => {
+                setIsGenerating(true);
+                const apiKey = "";
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                
+                const userQuery = `以下の情報を元に、本日の就労支援の「支援記録（職員が書く日報）」を150文字〜200文字程度で作成してください。客観的で丁寧な文体にしてください。
+        【本日の状況】
+        体調: ${form.condition}
+        体温: ${form.temperature ? form.temperature + '℃' : '未計測'}
+        起床: ${form.wakeTime || '不明'} / 就寝: ${form.sleepTime || '不明'}
+        【利用者の特性（アセスメント情報）】
+        得意なこと: ${assessmentData?.dailyLife?.strengths || '情報なし'}
+        苦手なこと: ${assessmentData?.dailyLife?.challenges || '情報なし'}
+        配慮事項: ${assessmentData?.triggers || '情報なし'}
+        `;
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: { parts: [{ text: "あなたは就労支援施設の経験豊富な支援員です。" }] }
+                };
+
+                let retries = 5;
+                let delay = 1000;
+                let generatedText = "";
+                
+                while (retries > 0) {
+                    try {
+                        const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                        const result = await response.json();
+                        if (result.error) throw new Error(result.error.message);
+                        generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                        break;
+                    } catch (e) {
+                        retries--;
+                        if (retries === 0) {
+                            alert("AIの生成に失敗しました。\nAPIキーが設定されているか、または時間をおいて再度お試しください。");
+                        } else {
+                            await new Promise(r => setTimeout(r, delay));
+                            delay *= 2;
+                        }
+                    }
+                }
+                
+                if(generatedText) setForm({...form, content: generatedText.trim()});
+                setIsGenerating(false);
+            };
+
+            const addRecord = () => {
+                if(!form.date) return;
+                onChange([...data, { id: Date.now(), ...form }]);
+                setForm({...form, content: ''}); 
+            };
+
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <Card title="新規支援記録の登録">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                            <InputGroup label="日付"><TextInput type="date" value={form.date} onChange={e=>setForm({...form, date:e.target.value})} /></InputGroup>
+                            <InputGroup label="体調">
+                                <div className="relative">
+                                    <select className="w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white border-slate-300 appearance-none" value={form.condition} onChange={e=>setForm({...form, condition:e.target.value})}>
+                                        {['良好', '普通', '変化なし', 'やや不調', '不調'].map(c=><option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500"><Icon name="chevron-down" size={16} /></div>
+                                </div>
+                            </InputGroup>
+                            <InputGroup label="体温 (℃)"><TextInput type="number" step="0.1" value={form.temperature} onChange={e=>setForm({...form, temperature:e.target.value})} placeholder="例: 36.5" /></InputGroup>
+                            <InputGroup label="起床 / 就寝時間">
+                                <div className="flex gap-2">
+                                    <TextInput type="time" value={form.wakeTime} onChange={e=>setForm({...form, wakeTime:e.target.value})} title="起床時間" />
+                                    <TextInput type="time" value={form.sleepTime} onChange={e=>setForm({...form, sleepTime:e.target.value})} title="就寝時間" />
+                                </div>
+                            </InputGroup>
+                        </div>
+                        <InputGroup label="支援内容・様子">
+                            <div className="mb-2">
+                                <button onClick={handleGenerateAI} disabled={isGenerating} className="bg-purple-600 text-white text-xs px-3 py-1.5 rounded flex items-center gap-1 hover:bg-purple-700 disabled:opacity-50 transition-colors shadow-sm">
+                                    <Icon name="wand-2" size={14} />
+                                    {isGenerating ? "AIが文章を生成中..." : "AIで支援内容を自動作成"}
+                                </button>
+                            </div>
+                            <TextArea rows={4} value={form.content} onChange={e=>setForm({...form, content:e.target.value})} placeholder="本日の様子や支援内容を入力してください。（AIで自動作成も可能です）" />
+                        </InputGroup>
+                        <div className="flex justify-end"><button onClick={addRecord} className="bg-blue-600 text-white px-6 py-2 rounded shadow-sm hover:bg-blue-700">記録を保存</button></div>
+                    </Card>
+
+                    <Card title="過去の支援記録">
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-slate-200 text-sm border-collapse">
+                                <thead className="bg-slate-50"><tr><th className="p-3 text-left w-24">日付</th><th className="p-3 text-left w-20">体調</th><th className="p-3 text-left w-20">体温</th><th className="p-3 text-left w-24">起床/就寝</th><th className="p-3 text-left">支援内容</th><th className="p-3 text-right w-16">操作</th></tr></thead>
+                                <tbody className="divide-y divide-slate-200">
+                                    {[...data].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(r => (
+                                        <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                                            <td className="p-3 font-bold text-slate-700">{r.date}</td>
+                                            <td className="p-3"><span className={`px-2 py-1 rounded text-xs ${r.condition==='良好'?'bg-green-100 text-green-800':r.condition.includes('不調')?'bg-red-100 text-red-800':'bg-slate-100 text-slate-800'}`}>{r.condition}</span></td>
+                                            <td className="p-3">{r.temperature ? `${r.temperature}℃` : '-'}</td>
+                                            <td className="p-3 text-slate-500 text-xs">{r.wakeTime || '-'}<br/>{r.sleepTime || '-'}</td>
+                                            <td className="p-3 whitespace-pre-wrap text-slate-600">{r.content}</td>
+                                            <td className="p-3 text-right"><button onClick={()=>onChange(data.filter(x=>x.id!==r.id))} className="text-red-500 hover:bg-red-50 p-1 rounded"><Icon name="trash-2" size={16}/></button></td>
+                                        </tr>
+                                    ))}
+                                    {data.length === 0 && <tr><td colSpan="6" className="p-8 text-center text-slate-400">支援記録がありません</td></tr>}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
+                </div>
+            );
+        };
+
+        const InterviewRecordForm = ({ data, staffList, onChange }) => {
+            const [form, setForm] = useState({ date: formatDateKey(new Date()), interviewer: '', content: '' });
+
+            const addRecord = () => {
+                if(!form.date || !form.content) return;
+                onChange([...data, { id: Date.now(), ...form }]);
+                setForm({...form, content: ''});
+            };
+
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <Card title="新規面談記録">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <InputGroup label="面談日"><TextInput type="date" value={form.date} onChange={e=>setForm({...form, date:e.target.value})} /></InputGroup>
+                            <InputGroup label="対応スタッフ"><StaffSelect value={form.interviewer} onChange={e=>setForm({...form, interviewer:e.target.value})} options={staffList} /></InputGroup>
+                        </div>
+                        <InputGroup label="面談内容" required><TextArea rows={4} value={form.content} onChange={e=>setForm({...form, content:e.target.value})} placeholder="面談で話した内容や決定事項を入力してください。" /></InputGroup>
+                        <div className="flex justify-end"><button onClick={addRecord} className="bg-blue-600 text-white px-6 py-2 rounded shadow-sm hover:bg-blue-700">記録を保存</button></div>
+                    </Card>
+
+                    <Card title="過去の面談記録">
+                        <div className="space-y-4">
+                            {[...data].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(r => (
+                                <div key={r.id} className="p-4 border border-slate-200 rounded-lg bg-white relative group hover:border-blue-300 transition-colors">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex items-center gap-3">
+                                            <span className="font-bold text-blue-800">{r.date}</span>
+                                            <span className="text-sm bg-blue-50 px-2 py-0.5 rounded text-blue-700 flex items-center gap-1"><Icon name="user" size={12}/> {r.interviewer || '未設定'}</span>
+                                        </div>
+                                        <button onClick={()=>onChange(data.filter(x=>x.id!==r.id))} className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Icon name="trash-2" size={16}/></button>
+                                    </div>
+                                    <div className="text-sm text-slate-700 whitespace-pre-wrap pl-3 border-l-2 border-slate-200 py-1">{r.content}</div>
+                                </div>
+                            ))}
+                            {data.length === 0 && <div className="text-center text-slate-400 p-8 border-2 border-dashed border-slate-200 rounded-lg">面談記録がありません</div>}
+                        </div>
+                    </Card>
+                </div>
             );
         };
 
