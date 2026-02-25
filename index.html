@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -267,6 +267,67 @@
                 <div className={`mb-4 p-4 rounded-md border flex items-start gap-3 shadow-sm ${alert.type === 'danger' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-yellow-50 border-yellow-200 text-yellow-800'}`}>
                     <Icon name="bell" className={`flex-shrink-0 ${alert.type === 'danger' ? 'text-red-500' : 'text-yellow-600'}`} />
                     <div><div className="font-bold">期限の確認が必要です</div><div className="text-sm mt-1">{alert.message}（{dateLabel}: {date}）</div></div>
+                </div>
+            );
+        };
+
+        // --- 連絡事項・トピックスダッシュボード ---
+        const TopicsDashboard = ({ users }) => {
+            const recentTopics = useMemo(() => {
+                const oneMonthAgo = new Date();
+                oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+                
+                let records = [];
+                users.forEach(user => {
+                    const userName = user.name || user.application?.applicantName || "名称未設定";
+                    (user.dailyRecords || []).forEach(r => {
+                        if (new Date(r.date) >= oneMonthAgo) {
+                            records.push({ ...r, userName, type: '支援記録', icon: 'clipboard-list' });
+                        }
+                    });
+                    (user.interviewRecords || []).forEach(r => {
+                        if (new Date(r.date) >= oneMonthAgo) {
+                            records.push({ ...r, userName, type: '面談記録', icon: 'message-circle' });
+                        }
+                    });
+                });
+                return records.sort((a, b) => new Date(b.date) - new Date(a.date));
+            }, [users]);
+
+            return (
+                <div className="mb-8 animate-fade-in">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-800">
+                        <Icon name="bell-ring" className="text-blue-500" />
+                        事業所全体の連絡事項・トピックス <span className="text-sm font-normal text-slate-500 ml-2">(直近1ヶ月の記録)</span>
+                    </h2>
+                    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-2 max-h-80 overflow-y-auto custom-scrollbar">
+                        {recentTopics.length === 0 ? (
+                            <div className="p-8 text-center text-slate-400 text-sm">
+                                <Icon name="inbox" size={32} className="mx-auto mb-2 opacity-50" />
+                                <p className="font-bold text-slate-500 mb-1">直近1ヶ月の支援記録や面談記録はありません</p>
+                                <p>利用者の詳細画面から記録を追加すると、自動的にここにタイムライン表示されます。</p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-slate-100">
+                                {recentTopics.map((topic, i) => (
+                                    <div key={`${topic.id}-${i}`} className="flex gap-4 p-4 hover:bg-slate-50 transition-colors">
+                                        <div className={`mt-1 p-2 rounded-full h-fit flex-shrink-0 ${topic.type === '面談記録' ? 'bg-purple-100 text-purple-600' : 'bg-green-100 text-green-600'}`}>
+                                            <Icon name={topic.icon} size={16} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="font-bold text-slate-800 text-sm">{topic.userName}</span>
+                                                <span className="text-xs text-slate-500">{topic.date}</span>
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${topic.type === '面談記録' ? 'border-purple-200 text-purple-700 bg-purple-50' : 'border-green-200 text-green-700 bg-green-50'}`}>{topic.type}</span>
+                                                {topic.interviewer && <span className="text-xs text-slate-500 ml-2 flex items-center gap-1"><Icon name="user" size={12}/> {topic.interviewer}</span>}
+                                            </div>
+                                            <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">{topic.content}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             );
         };
@@ -1405,6 +1466,7 @@
                         <main className="flex-1 p-8 overflow-y-auto">
                             {view === "list" && (
                                 <div className="max-w-6xl mx-auto">
+                                    <TopicsDashboard users={users} />
                                     <div className="flex justify-between mb-6"><h1 className="text-2xl font-bold">利用者一覧</h1><button onClick={handleCreateUser} className="bg-blue-600 text-white px-4 py-2 rounded flex gap-2"><Icon name="plus" />新規登録</button></div>
                                     <div className="bg-white rounded shadow overflow-hidden">
                                         <table className="min-w-full divide-y divide-slate-200"><thead className="bg-slate-50"><tr><th className="px-6 py-3 text-left">氏名</th><th className="px-6 py-3 text-left">状態</th><th className="px-6 py-3 text-right">操作</th></tr></thead>
