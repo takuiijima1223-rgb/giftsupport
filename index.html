@@ -38,6 +38,14 @@
     <div id="portal-root"></div>
 
     <script type="text/babel" data-presets="react,env">
+        // =========================================================================
+        // 【重要】APIキーの設定（外部環境用）
+        // GitHub PagesなどでAI機能（要約・自動作成）を利用する場合は、
+        // 以下の "" の中に、取得した Gemini API キー を直接入力してください。
+        // 例: const MY_GEMINI_API_KEY = "AIzaSyAvcBPuCz5IDusUrDfoDBeV0eKKoz9awIo";
+        // =========================================================================
+        const MY_GEMINI_API_KEY = "";
+
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
         const { createPortal } = ReactDOM;
 
@@ -191,9 +199,8 @@
                     return;
                 }
 
-                // 【重要】GitHub Pagesなどの外部環境で利用する場合は、以下の "" の中に取得したAPIキーを直接入力してください。
-                // 例: const apiKey = "AIzaSyAvcBPuCz5IDusUrDfoDBeV0eKKoz9awIo";
-                const apiKey = ""; 
+                // 先頭で設定したAPIキーを使用します
+                const apiKey = MY_GEMINI_API_KEY; 
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
                 const q = `以下の直近1ヶ月の記録を元に、職員の朝礼・終礼等で共有すべき「連絡事項・トピックス」を作成してください。\n情報がある利用者ごとに、以下の構成で簡潔にまとめてください。\n\n■ 【利用者名】\n・重要な点（最近の様子や変化など）\n・対応（行った支援や決定事項など）\n・気を付ける点（今後の配慮事項や注意点など）\n\nデータ:\n${dataStr}`;
 
@@ -434,9 +441,8 @@
                 setGen(true);
                 const query = `以下の情報で「支援記録」を150文字程度で作成。\n体調:${f.condition}, 体温:${f.temperature}℃, 起床:${f.wakeTime}, 就寝:${f.sleepTime}\n得意:${assessment?.dailyLife?.strengths||'なし'}\n苦手:${assessment?.dailyLife?.challenges||'なし'}`;
                 
-                // 【重要】GitHub Pagesなどの外部環境で利用する場合は、以下の "" の中に取得したAPIキーを直接入力してください。
-                // 例: const apiKey = "AIzaSyAvcBPuCz5IDusUrDfoDBeV0eKKoz9awIo";
-                const apiKey = ""; 
+                // 先頭で設定したAPIキーを使用します
+                const apiKey = MY_GEMINI_API_KEY; 
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
                 let retries = 5;
