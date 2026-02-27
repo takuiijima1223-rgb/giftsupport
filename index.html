@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -7,6 +7,7 @@
     
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- BabelにReactの処理を明示的に指定 -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -36,7 +37,7 @@
     <div id="root"></div>
     <div id="portal-root"></div>
 
-    <script type="text/babel">
+    <script type="text/babel" data-presets="react,env">
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
         const { createPortal } = ReactDOM;
 
@@ -190,20 +191,8 @@
                     return;
                 }
 
-                let apiKey = ""; 
-                if (!apiKey) {
-                    apiKey = localStorage.getItem('knowbe_gemini_api_key');
-                    if (!apiKey) {
-                        apiKey = prompt("【外部環境用】\nAI要約を生成するには Gemini API キーが必要です。\n(Google AI Studioで取得したAPIキーを入力してください)\n\n※プレビュー環境内では自動設定されるため入力不要です。");
-                        if (apiKey) {
-                            localStorage.setItem('knowbe_gemini_api_key', apiKey);
-                        } else {
-                            setIsGen(false);
-                            return;
-                        }
-                    }
-                }
-
+                // プレビュー環境用のAPIキー設定（空文字で環境から自動取得）
+                const apiKey = ""; 
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
                 const q = `以下の直近1ヶ月の記録を元に、職員の朝礼・終礼等で共有すべき「連絡事項・トピックス」を作成してください。
 情報がある利用者ごとに、以下の構成で簡潔にまとめてください。
@@ -235,9 +224,7 @@ ${dataStr}`;
                         } catch (e) {
                             retries--;
                             if (retries === 0) {
-                                alert("AIによる要約生成に失敗しました。\nAPIキーが正しくないか、利用制限に達している可能性があります。");
-                                const checkKey = ""; 
-                                if (!checkKey) localStorage.removeItem('knowbe_gemini_api_key');
+                                alert("AIによる要約生成に失敗しました。\n時間をおいて再度お試しください。");
                             }
                             else { await new Promise(r => setTimeout(r, delay)); delay *= 2; }
                         }
@@ -438,19 +425,8 @@ ${dataStr}`;
                 setGen(true);
                 const query = `以下の情報で「支援記録」を150文字程度で作成。\n体調:${f.condition}, 体温:${f.temperature}℃, 起床:${f.wakeTime}, 就寝:${f.sleepTime}\n得意:${assessment?.dailyLife?.strengths||'なし'}\n苦手:${assessment?.dailyLife?.challenges||'なし'}`;
                 
-                let apiKey = ""; 
-                if (!apiKey) {
-                    apiKey = localStorage.getItem('knowbe_gemini_api_key');
-                    if (!apiKey) {
-                        apiKey = prompt("【外部環境用】\nAIで支援記録を生成するには Gemini API キーが必要です。\n(Google AI Studioで取得したAPIキーを入力してください)");
-                        if (apiKey) {
-                            localStorage.setItem('knowbe_gemini_api_key', apiKey);
-                        } else {
-                            setGen(false);
-                            return;
-                        }
-                    }
-                }
+                // プレビュー環境用のAPIキー設定（空文字で環境から自動取得）
+                const apiKey = ""; 
 
                 try {
                     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, { method:"POST", headers: { "Content-Type": "application/json" }, body:JSON.stringify({contents:[{parts:[{text:query}]}], systemInstruction: { parts: [{ text: "あなたは就労支援施設の経験豊富な支援員です。" }] }})});
@@ -458,9 +434,7 @@ ${dataStr}`;
                     if(result.error) throw new Error(result.error.message);
                     if(result.candidates) setF({...f, content: result.candidates[0].content.parts[0].text.trim()});
                 } catch(e) { 
-                    alert("AIの生成に失敗しました。\nAPIキーが間違っているか、利用制限の可能性があります。"); 
-                    const checkKey = "";
-                    if(!checkKey) localStorage.removeItem('knowbe_gemini_api_key');
+                    alert("AIの生成に失敗しました。\n時間をおいて再度お試しください。"); 
                 }
                 setGen(false);
             };
@@ -531,7 +505,17 @@ ${dataStr}`;
                                             const v = (staffShifts[dk] && staffShifts[dk][s.id])?.time || "";
                                             return (
                                                 <td key={dk} className="border-r border-b p-0 relative">
-                                                    <div className="absolute inset-0 flex flex-col items-center justify-center font-bold text-[8px] pointer-events-none">{v.includes('-')?<><span>{v.split('-')[0]}</span><span className="opacity-50 my-[-2px]">|</span><span>{v.split('-')[1]}</span></>:<span>{v||'休'}</span>}</div>
+                                                    <div className="absolute inset-0 flex flex-col items-center justify-center font-bold text-[8px] pointer-events-none">
+                                                        {v.includes('-') ? (
+                                                            <React.Fragment>
+                                                                <span>{v.split('-')[0]}</span>
+                                                                <span className="opacity-50 my-[-2px]">|</span>
+                                                                <span>{v.split('-')[1]}</span>
+                                                            </React.Fragment>
+                                                        ) : (
+                                                            <span>{v||'休'}</span>
+                                                        )}
+                                                    </div>
                                                     <select className="w-full h-full opacity-0 cursor-pointer" value={v} onChange={e=>e.target.value==='MAN'?onShiftChange(d,s.id,prompt('時間(例:09:00-17:00)',v)||v):onShiftChange(d,s.id,e.target.value)}>
                                                         {opts.map(o=><option key={o} value={o}>{o}</option>)}
                                                         {!opts.includes(v)&&v&&<option value={v}>{v}</option>}<option value="MAN">手動...</option>
@@ -649,11 +633,11 @@ ${dataStr}`;
                             {isEditMode ? (
                                 <button onClick={() => setIsEditMode(false)} className="bg-orange-500 text-white px-4 py-1 rounded shadow text-sm font-bold flex items-center gap-1"><Icon name="check" size={14}/>編集完了</button>
                             ) : (
-                                <>
+                                <React.Fragment>
                                     <button onClick={() => setIsEditMode(true)} className="border border-slate-300 bg-white hover:bg-slate-50 px-3 py-1 rounded text-sm flex items-center gap-1"><Icon name="settings" size={14}/>レイアウト編集</button>
                                     <button onClick={autoAssign} className="bg-purple-600 text-white hover:bg-purple-700 px-3 py-1 rounded text-sm flex items-center gap-1"><Icon name="wand-2" size={14}/>AI提案</button>
                                     <button onClick={()=>setIsDatePickerOpen(true)} className="border border-slate-300 bg-white p-1 rounded font-bold ml-2 px-3">{dk}</button>
-                                </>
+                                </React.Fragment>
                             )}
                         </div>
                     </div>
@@ -908,6 +892,7 @@ ${dataStr}`;
             const refs = useRef({ users: null, staffs: null, tasks: null, userShifts: null, staffShifts: null, assignments: null, evaluations: null, seatLayout: null });
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
+            // Firebaseの初期化と待機状態の管理（確実に画面が表示されるように修正）
             useEffect(() => {
                 let isMounted = true;
                 const initFirebase = async () => {
@@ -925,18 +910,24 @@ ${dataStr}`;
                             window.firestoreModule = fsM;
                             
                             const firebaseConfig = JSON.parse(__firebase_config);
-                            if (Object.keys(firebaseConfig).length === 0) throw new Error("Empty config");
-
-                            const app = appM.initializeApp(firebaseConfig);
-                            const auth = authM.getAuth(app);
-                            window.db = fsM.getFirestore(app);
-                            
-                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await authM.signInWithCustomToken(auth, __initial_auth_token);
-                            else await authM.signInAnonymously(auth);
-                            
-                            authM.onAuthStateChanged(auth, u => { if(isMounted) setUser(u) });
+                            if (Object.keys(firebaseConfig).length > 0) {
+                                const app = appM.initializeApp(firebaseConfig);
+                                const auth = authM.getAuth(app);
+                                window.db = fsM.getFirestore(app);
+                                
+                                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                                    await authM.signInWithCustomToken(auth, __initial_auth_token);
+                                } else {
+                                    await authM.signInAnonymously(auth);
+                                }
+                                
+                                authM.onAuthStateChanged(auth, u => { 
+                                    if(isMounted) setUser(u);
+                                });
+                            }
                         } catch (e) { 
                             console.error("Firebase err", e); 
+                        } finally {
                             if(isMounted) setIsCloudReady(true);
                         }
                     } else {
@@ -944,6 +935,8 @@ ${dataStr}`;
                              const authM = await new Function('url', 'return import(url)')("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
                              setUser(authM.getAuth().currentUser);
                          } catch (e) {
+                             console.error("Firebase Auth err", e);
+                         } finally {
                              if(isMounted) setIsCloudReady(true);
                          }
                     }
@@ -952,7 +945,10 @@ ${dataStr}`;
                 return () => { isMounted = false; };
             }, []);
 
+            // データの読み込み管理（クラウドの準備完了を待つ）
             useEffect(() => {
+                if (!isCloudReady) return;
+
                 const defaultSeatLayout = Array.from({length:12}, (_,i)=>({id:String(i+1), x: (i%4)*160 + 20, y: Math.floor(i/4)*120 + 20, r: 0, label: `席 ${i+1}`}));
                 const dummyUser = { ...getInitialUserState(), id: Date.now(), name: "テスト利用者", application: { applicantName: "テスト利用者" } };
                 dummyUser.status = determineStatus(dummyUser);
@@ -964,7 +960,13 @@ ${dataStr}`;
                     setter(proc ? proc(init) : init);
                 };
 
-                if (typeof __firebase_config === 'undefined' || !user || !window.firestoreModule || !window.db) {
+                // Firebase設定はあるが、まだ認証完了（userの取得）が済んでいない場合は待機
+                if (typeof __firebase_config !== 'undefined' && window.firestoreModule && !user) {
+                    return; 
+                }
+
+                // ローカル（クラウド無効）環境の場合
+                if (typeof __firebase_config === 'undefined' || !window.firestoreModule || !window.db) {
                     loadLocal('users', setUsers, d => Array.isArray(d) ? d.map(mergeUser) : [], [mergeUser(dummyUser)]);
                     loadLocal('staffs', setStaffs, null, [{ id: 1, name: "管理者", role: "管理者" }]);
                     loadLocal('tasks', setTasks, null, []);
@@ -973,16 +975,19 @@ ${dataStr}`;
                     loadLocal('assignments', setAssignments, null, {});
                     loadLocal('evaluations', setEvaluations, null, {});
                     loadLocal('seatLayout', setSeatLayout, null, defaultSeatLayout);
-                    setIsCloudReady(true);
                     return;
                 }
 
+                // クラウド環境（Firestore連携）の場合
                 const { doc, onSnapshot, setDoc } = window.firestoreModule;
                 const load = (k, setter, proc, initVal) => {
                     return onSnapshot(doc(window.db, 'artifacts', appId, 'public', 'data', 'store', k), (snap) => {
                         if (snap.exists()) {
                             const val = snap.data().value;
-                            if (val !== refs.current[k]) { refs.current[k] = val; try { setter(proc ? proc(JSON.parse(val)) : JSON.parse(val)); } catch(e){} }
+                            if (val !== refs.current[k]) { 
+                                refs.current[k] = val; 
+                                try { setter(proc ? proc(JSON.parse(val)) : JSON.parse(val)); } catch(e){} 
+                            }
                         } else if (refs.current[k] === null) {
                             let init = initVal; const saved = localStorage.getItem(`knowbe_${k}`);
                             if(saved) try { init = JSON.parse(saved); } catch(e){}
@@ -1000,9 +1005,8 @@ ${dataStr}`;
                     load('assignments', setAssignments, null, {}), load('evaluations', setEvaluations, null, {}),
                     load('seatLayout', setSeatLayout, null, defaultSeatLayout)
                 ];
-                setIsCloudReady(true);
                 return () => unsubs.forEach(u => u());
-            }, [user, appId]);
+            }, [isCloudReady, user, appId]);
 
             const pub = useCallback(async (k, d) => {
                 if (!isCloudReady) return;
@@ -1049,7 +1053,7 @@ ${dataStr}`;
             const executeDelete = () => { if(deleteTarget){ setUsers(users.filter(u=>u.id!==deleteTarget.id)); setDeleteTarget(null); setView("list"); }};
             
             const exportData = () => { const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(users)); a.download = "data.json"; a.click(); };
-            const importData = (e) => { const r = new FileReader(); r.onload = (ev) => { if(confirm('上書きしますか？')) setUsers(JSON.parse(ev.target.result).map(u => mergeUserData(u))); }; if(e.target.files[0]) r.readAsText(e.target.files[0]); };
+            const importData = (e) => { const r = new FileReader(); r.onload = (ev) => { if(confirm('上書きしますか？')) setUsers(JSON.parse(ev.target.result).map(u => mergeUser(u))); }; if(e.target.files[0]) r.readAsText(e.target.files[0]); };
 
             const MenuBtn = ({ v, icon, lbl }) => (
                 <button onClick={() => setView(v)} className={`flex items-center space-x-3 w-full p-3 rounded transition ${view === v ? "bg-slate-700" : "hover:bg-slate-700"}`}><Icon name={icon} /><span>{lbl}</span></button>
