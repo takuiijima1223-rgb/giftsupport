@@ -158,34 +158,104 @@
         };
 
         const TopicsDashboard = ({ users }) => {
-            const topics = useMemo(() => {
-                const oneMonthAgo = new Date(); oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-                let recs = [];
+            const [summary, setSummary] = useState(localStorage.getItem('knowbe_topics_summary') || "");
+            const [lastGen, setLastGen] = useState(localStorage.getItem('knowbe_topics_lastGen') || "");
+            const [isGen, setIsGen] = useState(false);
+
+            const generate = async () => {
+                setIsGen(true);
+                const oneMonthAgo = new Date(); 
+                oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+                
+                let dataStr = "";
                 users.forEach(u => {
-                    const n = u.name || "名称未設定";
-                    (u.dailyRecords || []).forEach(r => { if (new Date(r.date) >= oneMonthAgo) recs.push({ ...r, n, type: '支援', icon: 'clipboard-list' }); });
-                    (u.interviewRecords || []).forEach(r => { if (new Date(r.date) >= oneMonthAgo) recs.push({ ...r, n, type: '面談', icon: 'message-circle' }); });
+                    let recs = [];
+                    (u.dailyRecords || []).forEach(r => { 
+                        if (new Date(r.date) >= oneMonthAgo) recs.push(`[支援 ${r.date}] 体調:${r.condition}, ${r.content}`); 
+                    });
+                    (u.interviewRecords || []).forEach(r => { 
+                        if (new Date(r.date) >= oneMonthAgo) recs.push(`[面談 ${r.date}] ${r.content}`); 
+                    });
+                    
+                    if (recs.length > 0) {
+                        dataStr += `\n【利用者: ${u.name || "未設定"}】\n`;
+                        dataStr += `特性/配慮事項: ${u.assessment?.triggers || '特になし'}, ${u.assessment?.coping || '特になし'}\n`;
+                        dataStr += `記録:\n${recs.join("\n")}\n`;
+                    }
                 });
-                return recs.sort((a, b) => new Date(b.date) - new Date(a.date));
-            }, [users]);
+
+                if (!dataStr) {
+                    setSummary("直近1ヶ月の記録がありません。");
+                    setIsGen(false);
+                    return;
+                }
+
+                const apiKey = "";
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                const q = `以下の直近1ヶ月の記録を元に、職員の朝礼・終礼等で共有すべき「連絡事項・トピックス」を作成してください。
+情報がある利用者ごとに、以下の構成で簡潔にまとめてください。
+
+■ 【利用者名】
+・重要な点（最近の様子や変化など）
+・対応（行った支援や決定事項など）
+・気を付ける点（今後の配慮事項や注意点など）
+
+データ:
+${dataStr}`;
+
+                try {
+                    let retries = 5; let delay = 1000; let txt = "";
+                    while (retries > 0) {
+                        try {
+                            const res = await fetch(url, { 
+                                method: "POST", 
+                                headers: { "Content-Type": "application/json" }, 
+                                body: JSON.stringify({ 
+                                    contents: [{ parts: [{ text: q }] }], 
+                                    systemInstruction: { parts: [{ text: "あなたは就労支援施設の経験豊富なサービス管理責任者です。職員間の円滑な情報共有のための的確な要約を作成します。" }] } 
+                                }) 
+                            });
+                            const result = await res.json();
+                            if (result.error) throw new Error(result.error.message);
+                            txt = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                            break;
+                        } catch (e) {
+                            retries--;
+                            if (retries === 0) alert("AIによる要約生成に失敗しました。APIキーが設定されているか確認してください。");
+                            else { await new Promise(r => setTimeout(r, delay)); delay *= 2; }
+                        }
+                    }
+                    if (txt) {
+                        const t = txt.trim();
+                        setSummary(t);
+                        const now = new Date().toLocaleString('ja-JP');
+                        setLastGen(now);
+                        localStorage.setItem('knowbe_topics_summary', t);
+                        localStorage.setItem('knowbe_topics_lastGen', now);
+                    }
+                } catch(e) {}
+                setIsGen(false);
+            };
 
             return (
                 <div className="mb-6 animate-fade-in">
-                    <h2 className="text-lg font-bold mb-2 flex items-center gap-2 text-slate-800"><Icon name="bell-ring" className="text-blue-500" />連絡事項・トピックス (直近1ヶ月)</h2>
-                    <div className="bg-white rounded shadow-sm border border-slate-200 p-2 max-h-60 overflow-y-auto">
-                        {topics.length === 0 ? <div className="p-4 text-center text-slate-400 text-sm">記録はありません</div> : 
-                            <div className="divide-y divide-slate-100">
-                                {topics.map((t, i) => (
-                                    <div key={i} className="flex gap-3 p-3 hover:bg-slate-50 transition-colors">
-                                        <div className={`mt-1 p-1.5 rounded-full h-fit ${t.type === '面談' ? 'bg-purple-100 text-purple-600' : 'bg-green-100 text-green-600'}`}><Icon name={t.icon} size={14} /></div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1"><span className="font-bold text-sm text-slate-800">{t.n}</span><span className="text-xs text-slate-500">{t.date}</span><span className={`text-[10px] px-1.5 py-0.5 rounded border font-bold ${t.type === '面談' ? 'border-purple-200 text-purple-700 bg-purple-50' : 'border-green-200 text-green-700 bg-green-50'}`}>{t.type}</span></div>
-                                            <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">{t.content}</p>
-                                        </div>
-                                    </div>
-                                ))}
+                    <div className="flex justify-between items-center mb-2">
+                        <h2 className="text-lg font-bold flex items-center gap-2 text-slate-800"><Icon name="bell-ring" className="text-blue-500" />連絡事項・トピックス (AI要約)</h2>
+                        <div className="flex items-center gap-3">
+                            {lastGen && <span className="text-xs text-slate-500">最終更新: {lastGen}</span>}
+                            <button onClick={generate} disabled={isGen} className="bg-purple-600 text-white px-3 py-1.5 rounded text-sm flex items-center gap-1 hover:bg-purple-700 disabled:opacity-50 shadow-sm"><Icon name="wand-2" size={14}/> {isGen ? '要約中...' : '最新情報で要約生成'}</button>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded shadow-sm border border-slate-200 p-4 max-h-80 overflow-y-auto custom-scrollbar">
+                        {summary ? (
+                            <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{summary}</div>
+                        ) : (
+                            <div className="p-8 text-center text-slate-400 text-sm">
+                                <Icon name="inbox" size={32} className="mx-auto mb-2 opacity-50" />
+                                <p className="font-bold text-slate-500 mb-1">AI要約がまだ生成されていません</p>
+                                <p>「要約生成」ボタンを押すと、直近の記録から共有事項をまとめます。</p>
                             </div>
-                        }
+                        )}
                     </div>
                 </div>
             );
