@@ -194,19 +194,12 @@
                 // プレビュー環境用のAPIキー設定（空文字で環境から自動取得）
                 const apiKey = ""; 
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-                const q = `以下の直近1ヶ月の記録を元に、職員の朝礼・終礼等で共有すべき「連絡事項・トピックス」を作成してください。
-情報がある利用者ごとに、以下の構成で簡潔にまとめてください。
+                const q = `以下の直近1ヶ月の記録を元に、職員の朝礼・終礼等で共有すべき「連絡事項・トピックス」を作成してください。\n情報がある利用者ごとに、以下の構成で簡潔にまとめてください。\n\n■ 【利用者名】\n・重要な点（最近の様子や変化など）\n・対応（行った支援や決定事項など）\n・気を付ける点（今後の配慮事項や注意点など）\n\nデータ:\n${dataStr}`;
 
-■ 【利用者名】
-・重要な点（最近の様子や変化など）
-・対応（行った支援や決定事項など）
-・気を付ける点（今後の配慮事項や注意点など）
-
-データ:
-${dataStr}`;
-
-                let retries = 5; let delay = 1000; let txt = "";
+                let retries = 5; 
+                let delay = 1000; 
                 let success = false;
+                let lastErrorMsg = "";
                 
                 while (retries > 0 && !success) {
                     try {
@@ -218,31 +211,40 @@ ${dataStr}`;
                                 systemInstruction: { parts: [{ text: "あなたは就労支援施設の経験豊富なサービス管理責任者です。職員間の円滑な情報共有のための的確な要約を作成します。" }] } 
                             }) 
                         });
-                        const result = await res.json();
-                        if (result.error) throw new Error(result.error.message);
-                        txt = result.candidates?.[0]?.content?.parts?.[0]?.text;
                         
+                        const result = await res.json();
+                        
+                        if (!res.ok) {
+                            throw new Error(result.error?.message || `HTTPエラー ${res.status}`);
+                        }
+                        if (result.error) {
+                            throw new Error(result.error.message);
+                        }
+                        
+                        const txt = result.candidates?.[0]?.content?.parts?.[0]?.text;
                         if (txt) {
+                            const t = txt.trim();
+                            setSummary(t);
+                            const now = new Date().toLocaleString('ja-JP');
+                            setLastGen(now);
+                            localStorage.setItem('knowbe_topics_summary', t);
+                            localStorage.setItem('knowbe_topics_lastGen', now);
                             success = true;
                         } else {
-                            throw new Error("No content generated");
+                            throw new Error("生成されたテキストが空でした");
                         }
                     } catch (e) {
+                        lastErrorMsg = e.message;
                         retries--;
-                        if (retries === 0) {
-                            alert("AIによる要約生成に失敗しました。\n一時的なネットワークエラーの可能性がありますので、しばらくしてから再度お試しください。");
+                        if (retries > 0) { 
+                            await new Promise(r => setTimeout(r, delay)); 
+                            delay *= 2; 
                         }
-                        else { await new Promise(r => setTimeout(r, delay)); delay *= 2; }
                     }
                 }
                 
-                if (success && txt) {
-                    const t = txt.trim();
-                    setSummary(t);
-                    const now = new Date().toLocaleString('ja-JP');
-                    setLastGen(now);
-                    localStorage.setItem('knowbe_topics_summary', t);
-                    localStorage.setItem('knowbe_topics_lastGen', now);
+                if (!success) {
+                    alert(`AI要約の生成に失敗しました。\n\n【エラー内容】\n${lastErrorMsg}\n\n時間をおいて再度お試しいただくか、エラー内容をご確認ください。`);
                 }
                 setIsGen(false);
             };
@@ -438,6 +440,7 @@ ${dataStr}`;
                 let retries = 5;
                 let delay = 1000;
                 let success = false;
+                let lastErrorMsg = "";
 
                 while (retries > 0 && !success) {
                     try {
@@ -449,26 +452,35 @@ ${dataStr}`;
                                 systemInstruction: { parts: [{ text: "あなたは就労支援施設の経験豊富な支援員です。" }] }
                             })
                         });
+                        
                         const result = await res.json();
                         
-                        if (result.error) throw new Error(result.error.message);
+                        if (!res.ok) {
+                            throw new Error(result.error?.message || `HTTPエラー ${res.status}`);
+                        }
+                        if (result.error) {
+                            throw new Error(result.error.message);
+                        }
                         
                         const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
                         if (text) {
                             setF({...f, content: text.trim()});
                             success = true;
                         } else {
-                            throw new Error("No content generated");
+                            throw new Error("生成されたテキストが空でした");
                         }
                     } catch(e) { 
+                        lastErrorMsg = e.message;
                         retries--;
-                        if (retries === 0) {
-                            alert("AIの生成に失敗しました。\n一時的なネットワークエラーの可能性がありますので、しばらくしてから再度お試しください。"); 
-                        } else {
+                        if (retries > 0) {
                             await new Promise(r => setTimeout(r, delay));
                             delay *= 2;
                         }
                     }
+                }
+                
+                if (!success) {
+                    alert(`AIの生成に失敗しました。\n\n【エラー内容】\n${lastErrorMsg}\n\n時間をおいて再度お試しいただくか、エラー内容をご確認ください。`); 
                 }
                 setGen(false);
             };
