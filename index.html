@@ -201,7 +201,8 @@
 
                 // 先頭で設定したAPIキーを使用します
                 const apiKey = MY_GEMINI_API_KEY; 
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                // 外部環境（GitHub Pages等）でも安定して動作する gemini-1.5-flash モデルに変更
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
                 const q = `以下の直近1ヶ月の記録を元に、職員の朝礼・終礼等で共有すべき「連絡事項・トピックス」を作成してください。\n情報がある利用者ごとに、以下の構成で簡潔にまとめてください。\n\n■ 【利用者名】\n・重要な点（最近の様子や変化など）\n・対応（行った支援や決定事項など）\n・気を付ける点（今後の配慮事項や注意点など）\n\nデータ:\n${dataStr}`;
 
                 let retries = 5; 
@@ -443,7 +444,8 @@
                 
                 // 先頭で設定したAPIキーを使用します
                 const apiKey = MY_GEMINI_API_KEY; 
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                // 外部環境（GitHub Pages等）でも安定して動作する gemini-1.5-flash モデルに変更
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
                 let retries = 5;
                 let delay = 1000;
